@@ -1,12 +1,7 @@
+import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
-
-import os
-from dotenv import load_dotenv
-
-# 환경변수(.env)를 불러오기 위한 설정
-import os
 from dotenv import load_dotenv
 
 # .env 파일 불러오기

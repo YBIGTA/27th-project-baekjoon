@@ -1,7 +1,7 @@
 from typing import Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import text
-from app.user.user_schema import User
+from app.user.user_schema import User, UserDB
 
 
 class UserRepository:
@@ -16,25 +16,26 @@ class UserRepository:
         """
         self.db = db
 
-    def get_user_by_email(self, email: str) -> Optional[User]:
+    def get_user_by_email(self, email: str) -> Optional[UserDB]:
         """
         이메일 주소를 기준으로 사용자를 조회한다.
 
         :param email: 조회할 사용자의 이메일 주소
         :return: User 객체 또는 None
         """
-        sql = text("SELECT email, password, username FROM users WHERE email = :email")
+        sql = text("SELECT email, password, salt, username FROM users WHERE email = :email")
         result = self.db.execute(sql, {"email": email}).fetchone()
 
         if result:
-            return User(
+            return UserDB(
                 email=result.email,
                 password=result.password,
+                salt=result.salt,
                 username=result.username
             )
         return None
 
-    def save_user(self, user: User) -> User:
+    def save_user(self, user: UserDB) -> UserDB:
         """
         사용자 정보를 저장한다. 기존 사용자가 있으면 업데이트, 없으면 삽입한다.
 
@@ -44,22 +45,30 @@ class UserRepository:
         existing_user = self.get_user_by_email(user.email)
 
         if existing_user:
-            sql = text("""
+            sql = text(
+                """
                 UPDATE users 
-                SET password = :password, username = :username 
+                SET password = :password, salt = :salt, username = :username 
                 WHERE email = :email
-            """)
+                """
+            )
         else:
-            sql = text("""
-                INSERT INTO users (email, password, username) 
-                VALUES (:email, :password, :username)
-            """)
+            sql = text(
+                """
+                INSERT INTO users (email, password, salt, username) 
+                VALUES (:email, :password, :salt, :username)
+                """
+            )
 
-        self.db.execute(sql, {
-            "email": user.email,
-            "password": user.password,
-            "username": user.username
-        })
+        self.db.execute(
+            sql,
+            {
+                "email": user.email,
+                "password": user.password,
+                "salt": user.salt,
+                "username": user.username,
+            },
+        )
         self.db.commit()
 
         return user

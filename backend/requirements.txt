@@ -25,3 +25,5 @@ starlette==0.41.3
 tomli==2.2.1
 typing_extensions==4.12.2
 uvicorn==0.34.0
+PyJWT==2.9.0
+python-multipart==0.0.19

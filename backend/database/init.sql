@@ -7,6 +7,8 @@ CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     email VARCHAR(255) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
+    -- 각 사용자별 솔트를 저장합니다 (hex/base64 문자열 저장용)
+    salt VARCHAR(255) NOT NULL,
     username VARCHAR(100),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

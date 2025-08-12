@@ -13,11 +13,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # .env에서 MySQL 접속 정보 가져오기
-user = os.getenv("MYSQL_USER")           
+user = os.getenv("MYSQL_USER")
 passwd = os.getenv("MYSQL_PASSWORD")
-host = os.getenv("MYSQL_HOST")           
-port = os.getenv("MYSQL_PORT")          
-db = os.getenv("MYSQL_DB")              
+host = os.getenv("MYSQL_HOST")
+port = os.getenv("MYSQL_PORT")
+db = os.getenv("MYSQL_DB")
 
 # SQLAlchemy 연결 URL 구성
 DB_URL = f'mysql+pymysql://{user}:{passwd}@{host}:{port}/{db}?charset=utf8'

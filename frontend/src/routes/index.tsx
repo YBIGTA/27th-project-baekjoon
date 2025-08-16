@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { Search } from "lucide-react"
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import Header from "@/components/organisms/header"
@@ -14,6 +14,16 @@ export const Route = createFileRoute('/')({
 
 function HomePage() {
   const [searchTerm, setSearchTerm] = React.useState("")
+  const navigate = useNavigate()
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      const term = searchTerm.trim()
+      if (!term) return
+      navigate({ to: '/problem/$problemId', params: { problemId: term } })
+    }
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -37,6 +47,7 @@ function HomePage() {
               <Input
                 type="text"
                 onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyDown={handleKeyDown}
                 value={searchTerm}
                 placeholder="문제 번호를 입력하세요..."
                 className="w-full pl-12 pr-4 py-4 text-lg bg-input border-border rounded-full shadow-sm focus:ring-2 focus:ring-ring focus:border-transparent"

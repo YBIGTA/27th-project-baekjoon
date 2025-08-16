@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { Search } from "lucide-react"
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import Header from "@/components/organisms/header"
@@ -13,6 +13,8 @@ export const Route = createFileRoute('/')({
 
 
 function HomePage() {
+  const [searchTerm, setSearchTerm] = React.useState("")
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header currentPage="home" />
@@ -34,12 +36,16 @@ function HomePage() {
               <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5" />
               <Input
                 type="text"
-                placeholder="검색어를 입력하세요..."
+                onChange={(e) => setSearchTerm(e.target.value)}
+                value={searchTerm}
+                placeholder="문제 번호를 입력하세요..."
                 className="w-full pl-12 pr-4 py-4 text-lg bg-input border-border rounded-full shadow-sm focus:ring-2 focus:ring-ring focus:border-transparent"
               />
             </div>
             <div className="flex gap-3 justify-center">
-              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-2">검색</Button>
+              <Link to="/problem/$problemId" params={{ problemId: searchTerm }}>
+                <Button className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-2">검색</Button>
+              </Link>
             </div>
           </div>
 

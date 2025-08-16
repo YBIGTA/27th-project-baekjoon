@@ -3,13 +3,14 @@ import { Link } from '@tanstack/react-router'
 
 interface HeaderProps {
   showAuthButtons?: boolean
-  currentPage?: "login" | "signup" | "home"
+  currentPage?: "login" | "signup" | "home",
+  maxWidth?: boolean
 }
 
-export default function Header({ showAuthButtons = true, currentPage = "home" }: HeaderProps) {
+export default function Header({ showAuthButtons = true, currentPage = "home", maxWidth = true }: HeaderProps) {
   return (
     <header className="w-full bg-card shadow-sm border-b border-border">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <div className={`mx-auto px-4 sm:px-6 lg:px-8 py-4 ${maxWidth ? "max-w-7xl" : ""}`}>
         <div className="flex justify-between items-center">
           <Link to="/">
             <h1 className="text-2xl font-bold text-primary font-[family-name:var(--font-playfair)] cursor-pointer hover:text-primary/80">

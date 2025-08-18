@@ -37,7 +37,7 @@ function HomePage() {
             <h2 className="text-5xl sm:text-6xl font-bold text-foreground font-[family-name:var(--font-playfair)]">
               BaekjoonHelper
             </h2>
-            <p className="text-lg text-muted-foreground">이젠 반례도 딸칵으로.</p>
+            <p className="text-lg text-muted-foreground">이젠 반례도 딸깍으로.</p>
           </div>
 
           {/* Search Bar */}

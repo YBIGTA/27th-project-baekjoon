@@ -4,6 +4,7 @@ import uvicorn
 
 from app.user.user_router import user
 from app.config import PORT
+from app.database_init import init_database
 
 app = FastAPI()
 
@@ -20,6 +21,14 @@ app.include_router(user)
 @app.get("/")
 def root():
     return {"status": "ok"}
+
+@app.on_event("startup")
+async def startup_event():
+    """
+    애플리케이션 시작 시 실행되는 이벤트
+    """
+    print("🚀 Starting BaekjoonHelper Backend...")
+    init_database()
 
 if __name__=="__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=PORT, reload=True)

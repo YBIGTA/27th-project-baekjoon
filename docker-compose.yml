@@ -34,6 +34,9 @@ services:
       MYSQL_DB: appdb
       MYSQL_USER: appuser
       MYSQL_PASSWORD: apppass
+      JWT_SECRET_KEY: CRqHRD3iYONY4_FCBtY-QQR3xg9HDbC1yJyfzDQe8S6L6Y5IojnYbh0rYM1Y9-sW2lXUU7Y22V2JSgBnIObFIw
+      JWT_ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 60
     ports:
       - "8000:8000"
 

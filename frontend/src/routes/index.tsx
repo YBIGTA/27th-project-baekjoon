@@ -3,6 +3,7 @@ import { Search } from "lucide-react"
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Spinner } from "@/components/ui/spinner"
 import Header from "@/components/organisms/header"
 import Footer from "@/components/organisms/footer"
 
@@ -16,12 +17,33 @@ function HomePage() {
   const [searchTerm, setSearchTerm] = React.useState("")
   const navigate = useNavigate()
 
+  const [isSearching, setIsSearching] = React.useState(false)
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault()
-      const term = searchTerm.trim()
-      if (!term) return
+      handleSearch()
+    }
+  }
+
+  const handleSearch = async () => {
+    const term = searchTerm.trim()
+    if (!term) return
+    
+    setIsSearching(true)
+    
+    try {
+      // 시뮬레이션을 위한 지연
+      await new Promise(resolve => setTimeout(resolve, 500))
+      
+      // TODO: 실제 문제 검색 API 호출
+      console.log('문제 검색:', term)
+      
       navigate({ to: '/problem/$problemId', params: { problemId: term } })
+    } catch (error) {
+      console.error('검색 실패:', error)
+    } finally {
+      setIsSearching(false)
     }
   }
 
@@ -37,7 +59,7 @@ function HomePage() {
             <h2 className="text-5xl sm:text-6xl font-bold text-foreground font-[family-name:var(--font-playfair)]">
               BaekjoonHelper
             </h2>
-            <p className="text-lg text-muted-foreground">이젠 반례도 딸칵으로.</p>
+            <p className="text-lg text-muted-foreground">이젠 반례도 딸깍으로.</p>
           </div>
 
           {/* Search Bar */}
@@ -54,9 +76,20 @@ function HomePage() {
               />
             </div>
             <div className="flex gap-3 justify-center">
-              <Link to="/problem/$problemId" params={{ problemId: searchTerm }}>
-                <Button className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-2">검색</Button>
-              </Link>
+              <Button 
+                onClick={handleSearch}
+                disabled={isSearching || !searchTerm.trim()}
+                className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-2 disabled:opacity-50"
+              >
+                {isSearching ? (
+                  <>
+                    <Spinner size="sm" />
+                    검색 중...
+                  </>
+                ) : (
+                  '검색'
+                )}
+              </Button>
             </div>
           </div>
 

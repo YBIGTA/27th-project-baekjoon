@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Spinner } from "@/components/ui/spinner"
 import Header from "@/components/organisms/header"
 import Footer from "@/components/organisms/footer"
 
@@ -22,10 +23,33 @@ function SearchResultPage() {
   const [output, setOutput] = useState("")
   const [selectedLanguage, setSelectedLanguage] = useState("javascript")
 
-  const handleRunCode = () => {
-    // 간단한 코드 실행 시뮬레이션
-    setOutput("실행 결과:\n입력: 5\n출력: 5\n\n테스트 케이스 1: 통과\n테스트 케이스 2: 통과")
+  const [isRunning, setIsRunning] = useState(false)
+  const [counterExample, setCounterExample] = useState<string | null>(null)
+
+  const handleRunCode = async () => {
+    setIsRunning(true)
     setIsTerminalOpen(true)
+    
+    try {
+      // 시뮬레이션을 위한 지연
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      
+      // TODO: 실제 코드 실행 API 호출
+      console.log('코드 실행:', { problemId, code, selectedLanguage })
+      
+      // 시뮬레이션 결과
+      setOutput("실행 결과:\n입력: 5\n출력: 5\n\n테스트 케이스 1: 통과 ✅\n테스트 케이스 2: 통과 ✅\n\n반례 탐색 중...")
+      
+      // 반례 탐색 시뮬레이션
+      await new Promise(resolve => setTimeout(resolve, 1500))
+      setCounterExample("반례 발견!\n\n입력: 1000000\n사용자 코드 출력: 1000000\n정답 코드 출력: 1000000\n\n결과: 정답입니다! 🎉")
+      
+    } catch (error) {
+      console.error('코드 실행 실패:', error)
+      setOutput("코드 실행 중 오류가 발생했습니다.")
+    } finally {
+      setIsRunning(false)
+    }
   }
 
   const handleReset = () => {
@@ -150,9 +174,22 @@ function SearchResultPage() {
                     <RotateCcw className="h-4 w-4" />
                     초기화
                   </Button>
-                  <Button onClick={handleRunCode} className="flex items-center gap-2 bg-primary hover:bg-primary/90">
-                    <Play className="h-4 w-4" />
-                    실행
+                  <Button 
+                    onClick={handleRunCode} 
+                    disabled={isRunning}
+                    className="flex items-center gap-2 bg-primary hover:bg-primary/90 disabled:opacity-50"
+                  >
+                    {isRunning ? (
+                      <>
+                        <Spinner size="sm" />
+                        실행 중...
+                      </>
+                    ) : (
+                      <>
+                        <Play className="h-4 w-4" />
+                        실행
+                      </>
+                    )}
                   </Button>
                 </div>
               </div>
@@ -180,6 +217,14 @@ function SearchResultPage() {
                   <pre className="text-sm font-mono text-muted-foreground whitespace-pre-wrap">
                     {output || "실행 버튼을 클릭하여 코드를 실행하세요."}
                   </pre>
+                  {counterExample && (
+                    <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-md">
+                      <h4 className="font-semibold text-green-800 mb-2">반례 탐색 결과</h4>
+                      <pre className="text-sm font-mono text-green-700 whitespace-pre-wrap">
+                        {counterExample}
+                      </pre>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

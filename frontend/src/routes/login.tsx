@@ -3,10 +3,12 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 import { useState } from "react"
-import { Link, createFileRoute } from '@tanstack/react-router'
+import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
 import { cn } from "@/lib/utils"
 import Header from "@/components/organisms/header"
 import Footer from "@/components/organisms/footer"
+import { useLoginMutation, tokenStorage } from '@/api/auth'
+import { queryClient } from '@/lib/react-query'
 
 
 export const Route = createFileRoute('/login')({
@@ -15,6 +17,7 @@ export const Route = createFileRoute('/login')({
 
 
 function LoginPage() {
+  const router = useRouter()
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [formData, setFormData] = useState({
@@ -23,6 +26,7 @@ function LoginPage() {
     rememberMe: false
   })
   const [errors, setErrors] = useState<{[key: string]: string}>({})
+  const loginMutation = useLoginMutation()
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target
@@ -61,20 +65,18 @@ function LoginPage() {
     if (!validateForm()) return
     
     setIsLoading(true)
-    
     try {
-      // TODO: 실제 로그인 API 호출
-      console.log('로그인 시도:', formData)
-      
-      // 시뮬레이션을 위한 지연
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      // TODO: 로그인 성공 후 리다이렉트
-      console.log('로그인 성공!')
-      
-    } catch (error) {
-      console.error('로그인 실패:', error)
-      setErrors({ general: '로그인에 실패했습니다. 이메일과 비밀번호를 확인해주세요.' })
+      const res = await loginMutation.mutateAsync({ email: formData.email, password: formData.password })
+      tokenStorage.set(res.data.access_token, formData.rememberMe)
+      // reset me
+      await queryClient.invalidateQueries({ queryKey: ['me'] })
+      queryClient.setQueryData(['me'], {
+        email: res.data.user.email,
+        username: res.data.user.username,
+      })
+      router.navigate({ to: '/' })
+    } catch (error: any) {
+      setErrors({ general: error?.message || '로그인에 실패했습니다. 이메일과 비밀번호를 확인해주세요.' })
     } finally {
       setIsLoading(false)
     }

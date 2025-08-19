@@ -3,10 +3,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 import { useState } from "react"
-import { Link, createFileRoute } from '@tanstack/react-router'
+import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
 import { cn } from "@/lib/utils"
 import Header from "@/components/organisms/header"
 import Footer from "@/components/organisms/footer"
+import { useRegisterMutation } from '@/api/auth'
 
 
 export const Route = createFileRoute('/signup')({
@@ -14,6 +15,7 @@ export const Route = createFileRoute('/signup')({
 })
 
 function SignupPage() {
+  const router = useRouter()
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -26,6 +28,7 @@ function SignupPage() {
     marketingAgreed: false
   })
   const [errors, setErrors] = useState<{[key: string]: string}>({})
+  const registerMutation = useRegisterMutation()
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target
@@ -82,18 +85,14 @@ function SignupPage() {
     setIsLoading(true)
     
     try {
-      // TODO: 실제 회원가입 API 호출
-      console.log('회원가입 시도:', formData)
-      
-      // 시뮬레이션을 위한 지연
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      // TODO: 회원가입 성공 후 리다이렉트
-      console.log('회원가입 성공!')
-      
-    } catch (error) {
-      console.error('회원가입 실패:', error)
-      setErrors({ general: '회원가입에 실패했습니다. 다시 시도해주세요.' })
+      await registerMutation.mutateAsync({
+        email: formData.email,
+        password: formData.password,
+        username: formData.name,
+      })
+      router.navigate({ to: '/login' })
+    } catch (error: any) {
+      setErrors({ general: error?.message || '회원가입에 실패했습니다. 다시 시도해주세요.' })
     } finally {
       setIsLoading(false)
     }

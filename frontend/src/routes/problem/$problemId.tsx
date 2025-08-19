@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 import { ChevronDown, ChevronUp, Play, RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,9 +9,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Spinner } from "@/components/ui/spinner"
 import Header from "@/components/organisms/header"
 import Footer from "@/components/organisms/footer"
+import { Protected } from '@/components/Protected'
 
 
 export const Route = createFileRoute('/problem/$problemId')({
+  beforeLoad: async ({ context }) => {
+    // SSR not used; rely on client-side token presence checked in useMe
+    const token = typeof window !== 'undefined' ? (localStorage.getItem('bh_access_token') || sessionStorage.getItem('bh_access_token')) : null
+    if (!token) {
+      throw redirect({ to: '/login' })
+    }
+  },
   component: SearchResultPage,
 })
 
@@ -62,6 +70,7 @@ function SearchResultPage() {
   }
 
   return (
+  <Protected>
     <div className="min-h-screen bg-background flex flex-col">
       <Header showAuthButtons={false} maxWidth={false} />
 
@@ -234,5 +243,6 @@ function SearchResultPage() {
 
       <Footer />
     </div>
+  </Protected>
   )
 }

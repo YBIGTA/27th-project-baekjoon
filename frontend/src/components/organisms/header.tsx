@@ -1,5 +1,7 @@
 import { Button } from "@/components/ui/button"
-import { Link } from '@tanstack/react-router'
+import { Link, useRouter } from '@tanstack/react-router'
+import { useAuth } from '@/context/auth'
+import { logout } from '@/api/auth'
 
 interface HeaderProps {
   showAuthButtons?: boolean
@@ -8,6 +10,14 @@ interface HeaderProps {
 }
 
 export default function Header({ showAuthButtons = true, currentPage = "home", maxWidth = true }: HeaderProps) {
+  const { isAuthenticated, user } = useAuth()
+  const router = useRouter()
+
+  const handleLogout = () => {
+    logout()
+    router.navigate({ to: '/login' })
+  }
+  
   return (
     <header className="w-full bg-card shadow-sm border-b border-border">
       <div className={`mx-auto px-4 sm:px-6 lg:px-8 py-4 ${maxWidth ? "max-w-7xl" : ""}`}>
@@ -18,18 +28,29 @@ export default function Header({ showAuthButtons = true, currentPage = "home", m
             </h1>
           </Link>
           {showAuthButtons && (
-            <div className="flex gap-3">
-              {currentPage !== "login" && (
-                <Link to="/login">
-                  <Button variant="ghost" className="text-foreground hover:text-primary">
-                    로그인
+            <div className="flex gap-3 items-center">
+              {isAuthenticated ? (
+                <>
+                  <span className="text-sm text-muted-foreground">{user?.username}</span>
+                  <Button variant="outline" onClick={handleLogout}>
+                    로그아웃
                   </Button>
-                </Link>
-              )}
-              {currentPage !== "signup" && (
-                <Link to="/signup">
-                  <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">회원가입</Button>
-                </Link>
+                </>
+              ) : (
+                <>
+                  {currentPage !== "login" && (
+                    <Link to="/login">
+                      <Button variant="ghost" className="text-foreground hover:text-primary">
+                        로그인
+                      </Button>
+                    </Link>
+                  )}
+                  {currentPage !== "signup" && (
+                    <Link to="/signup">
+                      <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">회원가입</Button>
+                    </Link>
+                  )}
+                </>
               )}
             </div>
           )}

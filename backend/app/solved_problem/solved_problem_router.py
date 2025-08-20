@@ -67,15 +67,6 @@ def delete_solved_problem(
     return {"message": "해결 기록이 삭제되었습니다."}
 
 
-@router.get("/stats/summary")
-def get_user_stats(
-    current_user: UserResponse = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    service = SolvedProblemService(db)
-    return service.get_user_stats(current_user.id)
-
-
 @router.post("/metadata", response_model=ProblemMetadataResponse)
 def save_problem_metadata(
     problem_metadata: ProblemMetadataCreate,

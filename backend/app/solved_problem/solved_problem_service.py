@@ -7,7 +7,6 @@ from app.solved_problem.solved_problem_schema import (
     ProblemMetadataCreate,
     ProblemMetadataResponse
 )
-from app.models.solved_problem_model import ProblemStatus
 
 
 class SolvedProblemService:
@@ -36,16 +35,6 @@ class SolvedProblemService:
 
     def delete_solved_problem(self, user_id: int, problem_id: int) -> bool:
         return self.repository.delete_solved_problem(user_id, problem_id)
-
-    def get_user_stats(self, user_id: int) -> dict:
-        total_solved = len(self.repository.get_user_solved_problems(user_id))
-        accepted_count = self.repository.get_accepted_problems_count(user_id)
-        
-        return {
-            "total_solved": total_solved,
-            "accepted_count": accepted_count,
-            "success_rate": (accepted_count / total_solved * 100) if total_solved > 0 else 0
-        }
 
     def save_problem_metadata(self, problem_metadata: ProblemMetadataCreate) -> ProblemMetadataResponse:
         metadata = self.repository.create_problem_metadata(problem_metadata)

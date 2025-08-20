@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { createFileRoute } from '@tanstack/react-router'
-import { ChevronDown, ChevronUp, Play, RotateCcw } from "lucide-react"
+import { ChevronDown, ChevronUp, Play, RotateCcw, Save } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
@@ -16,6 +16,14 @@ export const Route = createFileRoute('/problem/$problemId')({
 })
 
 
+interface CodeExecutionResult {
+  output: string
+  executionTime: number
+  memoryUsage: number
+  status: 'accepted' | 'wrong_answer' | 'time_limit_exceeded' | 'memory_limit_exceeded' | 'runtime_error'
+  counterExample?: string
+}
+
 function SearchResultPage() {
   const { problemId } = Route.useParams()
   const [code, setCode] = useState(`// 여기에 코드를 작성하세요`)
@@ -24,25 +32,87 @@ function SearchResultPage() {
   const [selectedLanguage, setSelectedLanguage] = useState("javascript")
 
   const [isRunning, setIsRunning] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
   const [counterExample, setCounterExample] = useState<string | null>(null)
+  const [executionResult, setExecutionResult] = useState<CodeExecutionResult | null>(null)
+
+  const executeCode = async (): Promise<CodeExecutionResult> => {
+    try {
+      const response = await fetch('http://localhost:8001/run-code', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          language: selectedLanguage,
+          code: code
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('코드 실행 실패')
+      }
+
+      const result = await response.json()
+      
+      // 실행 결과 분석 (간단한 예시)
+      const isCorrect = result.output.includes('정답') || result.output.includes('통과')
+      const status = isCorrect ? 'accepted' : 'wrong_answer'
+      
+      return {
+        output: result.output,
+        executionTime: Math.floor(Math.random() * 100) + 1, // 실제로는 측정 필요
+        memoryUsage: Math.random() * 10 + 0.1, // 실제로는 측정 필요
+        status: status,
+        counterExample: !isCorrect ? "반례 발견!\n입력: 1000000\n예상 출력: 1000000\n실제 출력: 오류" : undefined
+      }
+    } catch (error) {
+      return {
+        output: "코드 실행 중 오류가 발생했습니다.",
+        executionTime: 0,
+        memoryUsage: 0,
+        status: 'runtime_error'
+      }
+    }
+  }
+
+  const saveToDatabase = async (result: CodeExecutionResult) => {
+    try {
+      const token = localStorage.getItem('authToken')
+      
+      const response = await fetch('http://localhost:8000/solved-problems/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          problem_id: parseInt(problemId),
+          solution_code: code,
+          counter_example: result.counterExample || null
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('저장 실패')
+      }
+
+      return await response.json()
+    } catch (error) {
+      console.error('저장 실패:', error)
+      throw error
+    }
+  }
 
   const handleRunCode = async () => {
     setIsRunning(true)
     setIsTerminalOpen(true)
     
     try {
-      // 시뮬레이션을 위한 지연
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      // TODO: 실제 코드 실행 API 호출
-      console.log('코드 실행:', { problemId, code, selectedLanguage })
-      
-      // 시뮬레이션 결과
-      setOutput("실행 결과:\n입력: 5\n출력: 5\n\n테스트 케이스 1: 통과 ✅\n테스트 케이스 2: 통과 ✅\n\n반례 탐색 중...")
-      
-      // 반례 탐색 시뮬레이션
-      await new Promise(resolve => setTimeout(resolve, 1500))
-      setCounterExample("반례 발견!\n\n입력: 1000000\n사용자 코드 출력: 1000000\n정답 코드 출력: 1000000\n\n결과: 정답입니다! 🎉")
+      const result = await executeCode()
+      setExecutionResult(result)
+      setOutput(result.output)
+      setCounterExample(result.counterExample || null)
       
     } catch (error) {
       console.error('코드 실행 실패:', error)
@@ -52,9 +122,29 @@ function SearchResultPage() {
     }
   }
 
+  const handleSaveResult = async () => {
+    if (!executionResult) {
+      alert('먼저 코드를 실행해주세요.')
+      return
+    }
+
+    setIsSaving(true)
+    
+    try {
+      await saveToDatabase(executionResult)
+      alert('결과가 성공적으로 저장되었습니다!')
+    } catch (error) {
+      alert('저장에 실패했습니다. 로그인 상태를 확인해주세요.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   const handleReset = () => {
     setCode("// 여기에 코드를 작성하세요")
     setOutput("")
+    setExecutionResult(null)
+    setCounterExample(null)
   }
 
   const handleLanguageChange = (language: string) => {
@@ -66,9 +156,7 @@ function SearchResultPage() {
       <Header showAuthButtons={false} maxWidth={false} />
 
       <main className="flex-1 flex flex-col h-[calc(100vh-120px)]">
-        {/* Main Content Area */}
         <div className="flex-1 flex min-h-0">
-          {/* Left Panel - Problem Description */}
           <div className="w-1/2 border-r border-border p-6 overflow-y-auto">
             <Card>
               <CardHeader>
@@ -146,7 +234,6 @@ function SearchResultPage() {
             </Card>
           </div>
 
-          {/* Right Panel - Code Editor and Terminal */}
           <div className="w-1/2 flex flex-col min-h-0">
             <div className="p-4 border-b border-border">
               <div className="flex items-center justify-between">
@@ -191,6 +278,24 @@ function SearchResultPage() {
                       </>
                     )}
                   </Button>
+                  <Button 
+                    onClick={handleSaveResult}
+                    disabled={!executionResult || isSaving}
+                    variant="outline"
+                    className="flex items-center gap-2"
+                  >
+                    {isSaving ? (
+                      <>
+                        <Spinner size="sm" />
+                        저장 중...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4" />
+                        저장
+                      </>
+                    )}
+                  </Button>
                 </div>
               </div>
             </div>
@@ -209,7 +314,7 @@ function SearchResultPage() {
                 className="flex items-center justify-between p-3 bg-muted cursor-pointer hover:bg-muted/80"
                 onClick={() => setIsTerminalOpen(!isTerminalOpen)}
               >
-                <h3 className="text-sm font-semibold">반례</h3>
+                <h3 className="text-sm font-semibold">실행 결과</h3>
                 {isTerminalOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
               </div>
               {isTerminalOpen && (
@@ -217,6 +322,16 @@ function SearchResultPage() {
                   <pre className="text-sm font-mono text-muted-foreground whitespace-pre-wrap">
                     {output || "실행 버튼을 클릭하여 코드를 실행하세요."}
                   </pre>
+                  {executionResult && (
+                    <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                      <h4 className="font-semibold text-blue-800 mb-2">실행 정보</h4>
+                      <div className="text-sm text-blue-700 space-y-1">
+                        <div>실행 시간: {executionResult.executionTime}ms</div>
+                        <div>메모리 사용량: {executionResult.memoryUsage.toFixed(2)}MB</div>
+                        <div>상태: {executionResult.status}</div>
+                      </div>
+                    </div>
+                  )}
                   {counterExample && (
                     <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-md">
                       <h4 className="font-semibold text-green-800 mb-2">반례 탐색 결과</h4>

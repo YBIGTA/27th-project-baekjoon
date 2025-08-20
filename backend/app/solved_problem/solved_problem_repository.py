@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 from typing import List, Optional
-from app.models.solved_problem_model import SolvedProblemModel, ProblemStatus
+from app.models.solved_problem_model import SolvedProblemModel
 from app.models.problem_metadata_model import ProblemMetadataModel
 from app.solved_problem.solved_problem_schema import SolvedProblemCreate, ProblemMetadataCreate
 
@@ -15,10 +15,7 @@ class SolvedProblemRepository:
             user_id=user_id,
             problem_id=solved_problem.problem_id,
             solution_code=solved_problem.solution_code,
-            language=solved_problem.language,
-            execution_time_ms=solved_problem.execution_time_ms,
-            memory_usage_mb=solved_problem.memory_usage_mb,
-            status=solved_problem.status
+            counter_example=solved_problem.counter_example
         )
         self.db.add(db_solved_problem)
         self.db.commit()
@@ -44,10 +41,7 @@ class SolvedProblemRepository:
             return None
 
         db_solved_problem.solution_code = solved_problem.solution_code
-        db_solved_problem.language = solved_problem.language
-        db_solved_problem.execution_time_ms = solved_problem.execution_time_ms
-        db_solved_problem.memory_usage_mb = solved_problem.memory_usage_mb
-        db_solved_problem.status = solved_problem.status
+        db_solved_problem.counter_example = solved_problem.counter_example
 
         self.db.commit()
         self.db.refresh(db_solved_problem)
@@ -61,14 +55,6 @@ class SolvedProblemRepository:
         self.db.delete(db_solved_problem)
         self.db.commit()
         return True
-
-    def get_accepted_problems_count(self, user_id: int) -> int:
-        return self.db.query(SolvedProblemModel).filter(
-            and_(
-                SolvedProblemModel.user_id == user_id,
-                SolvedProblemModel.status == ProblemStatus.ACCEPTED
-            )
-        ).count()
 
     def create_problem_metadata(self, problem_metadata: ProblemMetadataCreate) -> ProblemMetadataModel:
         db_problem_metadata = ProblemMetadataModel(

@@ -15,10 +15,7 @@ CREATE TABLE IF NOT EXISTS solved_problems (
     user_id INT NOT NULL,
     problem_id INT NOT NULL,
     solution_code TEXT NOT NULL,
-    language VARCHAR(50) NOT NULL DEFAULT 'python',
-    execution_time_ms INT,
-    memory_usage_mb FLOAT,
-    status ENUM('accepted', 'wrong_answer', 'time_limit_exceeded', 'memory_limit_exceeded', 'runtime_error') NOT NULL,
+    counter_example TEXT,
     submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     UNIQUE KEY unique_user_problem (user_id, problem_id)

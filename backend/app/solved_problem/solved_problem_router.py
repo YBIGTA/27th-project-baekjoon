@@ -9,7 +9,7 @@ from app.solved_problem.solved_problem_schema import (
     ProblemMetadataCreate,
     ProblemMetadataResponse
 )
-from app.user.user_schema import UserResponse
+from app.user.user_schema import UserDB
 
 router = APIRouter(prefix="/solved-problems", tags=["solved-problems"])
 
@@ -17,7 +17,7 @@ router = APIRouter(prefix="/solved-problems", tags=["solved-problems"])
 @router.post("/", response_model=SolvedProblemResponse)
 def save_solved_problem(
     solved_problem: SolvedProblemCreate,
-    current_user: UserResponse = Depends(get_current_user),
+    current_user: UserDB = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     service = SolvedProblemService(db)
@@ -28,7 +28,7 @@ def save_solved_problem(
 def get_user_solved_problems(
     skip: int = 0,
     limit: int = 100,
-    current_user: UserResponse = Depends(get_current_user),
+    current_user: UserDB = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     service = SolvedProblemService(db)
@@ -38,7 +38,7 @@ def get_user_solved_problems(
 @router.get("/{problem_id}", response_model=SolvedProblemResponse)
 def get_user_problem_solution(
     problem_id: int,
-    current_user: UserResponse = Depends(get_current_user),
+    current_user: UserDB = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     service = SolvedProblemService(db)
@@ -54,7 +54,7 @@ def get_user_problem_solution(
 @router.delete("/{problem_id}")
 def delete_solved_problem(
     problem_id: int,
-    current_user: UserResponse = Depends(get_current_user),
+    current_user: UserDB = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     service = SolvedProblemService(db)

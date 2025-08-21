@@ -12,7 +12,8 @@ class CounterexampleRunner:
         self, 
         problem_description: str, 
         user_code: str, 
-        language: str = "python"
+        language: str = "python",
+        difficulty: int = 0,
     ) -> Dict[str, Any]:
         """
         사용자 코드에서 반례를 찾는 메인 함수
@@ -29,7 +30,8 @@ class CounterexampleRunner:
             "problem_description": problem_description,
             "user_code": user_code,
             "language": language,
-            "counterexample_found": False
+            "counterexample_found": False,
+            "difficulty": difficulty,
         }
         
         try:

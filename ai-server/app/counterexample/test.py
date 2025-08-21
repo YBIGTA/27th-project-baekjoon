@@ -48,7 +48,12 @@ else:
     print(b)
 """
 async def run_counterexample():
-    result = await runner.find_counterexample(problem_description=PROBLEM, language="python", user_code=USERCODE)
+    result = await runner.find_counterexample(
+        problem_description=PROBLEM, 
+        language="python", 
+        user_code=USERCODE,
+        difficulty=8
+    )
     print(result)
     return result
 

@@ -5,7 +5,8 @@ class CounterexampleState(TypedDict, total=False):
     problem_description: str  # 주어진 문제
     user_code: str           # 사용자가 제출한 코드
     language: str
-    
+    difficulty: int  # 문제 난이도 (정수, 1~30. unlabeled: 0)
+
     # AI가 생성한 올바른 해결책
     correct_solution: str
     

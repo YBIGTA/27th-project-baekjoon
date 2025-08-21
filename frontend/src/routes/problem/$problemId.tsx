@@ -191,7 +191,7 @@ function SearchResultPage() {
                   >
                     {isRunning ? (
                       <>
-                        <Spinner size="sm" />
+                        <Spinner size="sm" className="text-white"/>
                         실행 중...
                       </>
                     ) : (

@@ -58,14 +58,23 @@ services:
     depends_on:
       - backend
       - ai-server
+      - code-runner-api
 
-  code-runner:
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  code-runner-api:
     build: ./code-runner
-    container_name: code-runner
+    container_name: code-runner-api
+    command: uvicorn app.api:app --host 0.0.0.0 --port 8000
     ports:
       - "8001:8000"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - redis
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -73,5 +82,41 @@ services:
       timeout: 10s
       retries: 3
 
+  code-runner-worker:
+    build: ./code-runner
+    runtime: kata
+    container_name: code-runner-worker
+    command: celery -A app.worker worker --loglevel=info --concurrency=50
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    deploy:
+      resources:
+        limits:
+          cpus: '16'
+          memory: 7G
+    depends_on:
+      - redis
+    restart: unless-stopped
+
 volumes:
   mysql_data:
+
+  code-runner:
+    build: ./code-runner
+    runtime: kata
+    container_name: code-runner
+    ports:
+      - "8001:8000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    deploy:
+      resources:
+        limits:
+          cpus: '16'
+          memory: 7G
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

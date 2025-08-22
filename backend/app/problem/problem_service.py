@@ -1,5 +1,6 @@
 from typing import Optional
 from bs4 import BeautifulSoup
+from markdownify import markdownify as md
 from app.problem.problem_repository import SolvedProblemRepository
 from app.problem.problem_schema import (
     CalcCounterExampleResponse,
@@ -72,18 +73,11 @@ class SolvedProblemService:
 
     @staticmethod
     def _get_problem_markdown(problem_info: FullProblemInfo):
-        # HTML 태그 제거를 위한 헬퍼 함수
-        def clean_html(text: str) -> str:
-            if not text:
-                return ""
-            soup = BeautifulSoup(text, 'html.parser')
-            return soup.get_text().strip()
-
-        title = clean_html(problem_info.title)
-        description = clean_html(problem_info.description)
-        input_description = clean_html(problem_info.input_description)
-        output_description = clean_html(problem_info.output_description)
-        constraints = clean_html(problem_info.constraints)
+        title = md(problem_info.title, strip=['img'])
+        description = md(problem_info.description, strip=['img'])
+        input_description = md(problem_info.input_description, strip=['img'])
+        output_description = md(problem_info.output_description, strip=['img'])
+        constraints = md(problem_info.constraints, strip=['img'])
 
         result = (
             f"# {title}\n\n"
@@ -94,5 +88,12 @@ class SolvedProblemService:
         
         if constraints:
             result += f"## 제약조건\n\n{constraints}\n"
-            
+
+        if len(problem_info.test_cases) > 0:
+            result += "## 예제 입력/출력\n\n"
+            for i, test_case in enumerate(problem_info.test_cases):
+                result += f"### 예제 {i + 1}\n\n"
+                result += f"**입력:**\n```\n{test_case.input.strip()}\n```\n\n"
+                result += f"**출력:**\n```\n{test_case.output.strip()}\n```\n\n"
+
         return result

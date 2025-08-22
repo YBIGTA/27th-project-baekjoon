@@ -27,4 +27,4 @@ async def get_problem_data(
             detail=f"Problem with ID {problem_id} not found or could not be crawled.",
         )
 
-    return BaseResponse(status="success", data=problem_data)
+    return BaseResponse(status="success", data=problem_data, message="Problem data fetched successfully.")

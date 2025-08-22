@@ -33,10 +33,10 @@ class ProblemTagNameTranslated(BaseModel):
 
 class ProblemTag(BaseModel):
     """solved.ac 문제 태그 스키마"""
-    key: str = Field(..., description="solved.ac에서 쓰는 태그 ID", example="arbitrary_precision")
-    isMeta: bool = Field(..., description="메타 태그 여부", example=False)
-    bojTagId: int = Field(..., description="백준 온라인 저지에서 쓰는 태그 ID", example=117)
-    problemCount: int = Field(..., description="태그가 붙은 문제 수", example=241)
+    key: str = Field(..., description="solved.ac에서 쓰는 태그 ID", examples=["arbitrary_precision"])
+    isMeta: bool = Field(..., description="메타 태그 여부", examples=[False])
+    bojTagId: int = Field(..., description="백준 온라인 저지에서 쓰는 태그 ID", examples=[117])
+    problemCount: int = Field(..., description="태그가 붙은 문제 수", examples=[241])
     displayNames: List[ProblemTagNameTranslated] = Field(..., description="언어별 태그 이름 목록")
     aliases: List[ProblemTagAlias] = Field(default_factory=list, description="별명 목록. 빈 배열일 수 있음")
 

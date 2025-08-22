@@ -24,6 +24,10 @@ def get_db() -> Generator[Session, None, None]:
         db.close()
 
 
+def get_crawler() -> AcmicpcCrawler:
+    return AcmicpcCrawler()
+
+
 def get_user_repository(db: Session = Depends(get_db)) -> UserRepository:
     """
     FastAPI에서 사용할 UserRepository 객체를 의존성 주입으로 제공
@@ -46,11 +50,14 @@ def get_solved_problem_repository(db: Session = Depends(get_db)) -> SolvedProble
     return SolvedProblemRepository(db)
 
 
-def get_solved_problem_service(repo: SolvedProblemRepository = Depends(get_solved_problem_repository)) -> SolvedProblemService:
+def get_solved_problem_service(
+    repo: SolvedProblemRepository = Depends(get_solved_problem_repository),
+    crawler: AcmicpcCrawler = Depends(get_crawler)
+) -> SolvedProblemService:
     """
     FastAPI에서 사용할 SolvedProblemService 객체를 의존성 주입으로 제공
     """
-    return SolvedProblemService(repo)
+    return SolvedProblemService(repo, crawler)
 
 
 def get_current_user(
@@ -64,6 +71,3 @@ def get_current_user(
         raise HTTPException(status_code=404, detail="User not found")
     return user_db
 
-
-def get_crawler() -> AcmicpcCrawler:
-    return AcmicpcCrawler()

@@ -1,4 +1,4 @@
-from fastapi.params import Depends
+from fastapi import Depends
 from sqlalchemy.orm import Session
 from typing import Optional
 from app.solved_problem.solved_problem_repository import SolvedProblemRepository
@@ -8,11 +8,13 @@ from app.solved_problem.solved_problem_schema import (
     ProblemMetadataCreate,
     ProblemMetadataResponse
 )
+from app.crawler.acmicpc_crawler import AcmicpcCrawler
 
 
 class SolvedProblemService:
-    def __init__(self, repository: SolvedProblemRepository):
+    def __init__(self, repository: SolvedProblemRepository, crawler: AcmicpcCrawler):
         self.repository = repository
+        self.crawler = crawler
 
     def save_solved_problem(self, solved_problem: SolvedProblemCreate) -> SolvedProblemResponse:
         existing_solution = self.repository.get_problem_solution(solved_problem.problem_id)
@@ -37,11 +39,23 @@ class SolvedProblemService:
         metadata = self.repository.create_problem_metadata(problem_metadata)
         return ProblemMetadataResponse.model_validate(metadata)
 
-    def get_problem_metadata(self, problem_id: int) -> Optional[ProblemMetadataResponse]:
+    async def get_problem_metadata(self, problem_id: int) -> ProblemMetadataResponse:
         metadata = self.repository.get_problem_metadata(problem_id)
-        if metadata:
-            return ProblemMetadataResponse.model_validate(metadata)
-        return None
+        if not metadata:
+            data = await self.crawler.fetch_full_problem(problem_id)
+            if not data:
+                raise ValueError("Failed to fetch problem metadata")
+            
+            category = ','.join(map(lambda tag: tag.displayNames[0].name, data.tags))
+            problem_metadata = ProblemMetadataCreate(
+                problem_id=problem_id,
+                title=data.title,
+                category=category,
+                description=data.description,
+                difficulty=data.level
+            )
+            metadata = self.repository.create_problem_metadata(problem_metadata)
+        return ProblemMetadataResponse.model_validate(metadata)
 
     def update_problem_metadata(self, problem_id: int, problem_metadata: ProblemMetadataCreate) -> Optional[ProblemMetadataResponse]:
         metadata = self.repository.update_problem_metadata(problem_id, problem_metadata)

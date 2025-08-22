@@ -62,17 +62,18 @@ def save_problem_metadata(
 
 
 @router.get("/metadata/{problem_id}", response_model=ProblemMetadataResponse)
-def get_problem_metadata(
+async def get_problem_metadata(
     problem_id: int,
     service: SolvedProblemService = Depends(get_solved_problem_service)
 ):
-    metadata = service.get_problem_metadata(problem_id)
-    if not metadata:
+    try:
+        metadata = await service.get_problem_metadata(problem_id)
+        return metadata
+    except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="해당 문제의 메타데이터를 찾을 수 없습니다."
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="문제 메타데이터를 가져오는 중 오류가 발생했습니다: " + str(e)
         )
-    return metadata
 
 
 @router.put("/metadata/{problem_id}", response_model=ProblemMetadataResponse)

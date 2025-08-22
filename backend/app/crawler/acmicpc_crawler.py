@@ -1,12 +1,14 @@
 import httpx
+import asyncio
 from bs4 import BeautifulSoup, Tag
 from typing import Optional
 
-from .crawler_schema import ProblemData
+from .crawler_schema import ProblemData, ProblemTag, SolvedAcData, FullProblemInfo
 
 
 class AcmicpcCrawler:
     BASE_URL = "https://www.acmicpc.net/problem/{problem_id}"
+    SOLVED_AC_URL = "https://solved.ac/api/v3/problem/show"
 
     async def fetch_problem(self, problem_id: int) -> Optional[ProblemData]:
         """
@@ -40,8 +42,6 @@ class AcmicpcCrawler:
         limit_h2 = soup.find("h2", string="제한")
         constraints = str(limit_h2.find_next_sibling("div")) if limit_h2 and isinstance(limit_h2.find_next_sibling("div"), Tag) else ""
 
-        tags = [tag.get_text(strip=True) for tag in soup.select("#problem_tags a.spoiler-list")]
-
         return ProblemData(
             problem_id=problem_id,
             title=title_tag.get_text(strip=True),
@@ -49,11 +49,47 @@ class AcmicpcCrawler:
             constraints=constraints,
             input_description=input_desc,
             output_description=output_desc,
-            tags=tags,
+        )
+    
+    async def fetch_solved_ac_problem(self, problem_id: int) -> Optional[SolvedAcData]:
+        """
+        Solved.ac API를 사용하여 문제 정보를 비동기적으로 크롤링합니다.
+        """
+        params = {"problemId": problem_id}
+        headers = {
+            "x-solvedac-language": "ko"
+        }
+        try:
+            async with httpx.AsyncClient(follow_redirects=True, headers=headers) as client:
+                response = await client.get(self.SOLVED_AC_URL, params=params)
+                response.raise_for_status()
+        except (httpx.HTTPStatusError, httpx.RequestError) as e:
+            print(f"Error fetching Solved.ac problem {problem_id}: {e}")
+            return None
+
+        data = response.json()
+        if not data or "problemId" not in data:
+            return None
+
+        return SolvedAcData(
+            level=data.get("level", 0),
+            tags=[ProblemTag(**tag) for tag in data.get("tags", [])]
+        )
+    
+    async def fetch_full_problem(self, problem_id: int) -> Optional[FullProblemInfo]:
+        acmicpc_data, solved_ac_data = await asyncio.gather(
+            self.fetch_problem(problem_id),
+            self.fetch_solved_ac_problem(problem_id)
+        )
+
+        if not acmicpc_data or not solved_ac_data:
+            return None
+
+        return FullProblemInfo(
+            **acmicpc_data.model_dump(),
+            **solved_ac_data.model_dump()
         )
 
     def _get_section_html(self, soup: BeautifulSoup, section_id: str) -> str:
         section = soup.find("div", id=section_id)
         return str(section) if section else ""
-
-crawler = AcmicpcCrawler()

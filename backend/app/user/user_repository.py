@@ -27,6 +27,7 @@ class UserRepository:
         
         if user_model:
             return UserDB(
+                id=user_model.id,
                 email=user_model.email,
                 password=user_model.password,
                 salt=user_model.salt,

@@ -5,7 +5,9 @@ from fastapi import Depends, HTTPException
 from database.mysql_connection import SessionLocal
 from app.user.user_repository import UserRepository
 from app.user.user_service import UserService
-from app.user.user_schema import User
+from app.solved_problem.solved_problem_service import SolvedProblemService
+from app.solved_problem.solved_problem_repository import SolvedProblemRepository
+from app.user.user_schema import UserDB
 from app.auth import get_current_user_email
 
 
@@ -36,13 +38,27 @@ def get_user_service(db: Session = Depends(get_db)) -> UserService:
     return UserService(user_repo)
 
 
+def get_solved_problem_repository(db: Session = Depends(get_db)) -> SolvedProblemRepository:
+    """
+    FastAPI에서 사용할 SolvedProblemRepository 객체를 의존성 주입으로 제공
+    """
+    return SolvedProblemRepository(db)
+
+
+def get_solved_problem_service(repo: SolvedProblemRepository = Depends(get_solved_problem_repository)) -> SolvedProblemService:
+    """
+    FastAPI에서 사용할 SolvedProblemService 객체를 의존성 주입으로 제공
+    """
+    return SolvedProblemService(repo)
+
+
 def get_current_user(
     current_email: str = Depends(get_current_user_email),
     db: Session = Depends(get_db),
-) -> User:
+) -> UserDB:
     """JWT 토큰의 이메일로 현재 사용자 정보를 조회하여 반환합니다."""
     repo = UserRepository(db)
     user_db = repo.get_user_by_email(current_email)
     if not user_db:
         raise HTTPException(status_code=404, detail="User not found")
-    return User(email=user_db.email, password="", username=user_db.username)
+    return user_db

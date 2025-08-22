@@ -10,6 +10,7 @@ class UserDB(User):
     """
     내부 저장소용 모델 (salt 포함). API 스키마에는 노출하지 않습니다.
     """
+    id: Optional[int] = None
     salt: str
 
 class UserLogin(BaseModel):

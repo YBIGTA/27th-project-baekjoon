@@ -2,10 +2,6 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
-from dotenv import load_dotenv
-
-# .env 파일 불러오기
-load_dotenv()
 
 # .env에서 MySQL 접속 정보 가져오기
 user = os.getenv("MYSQL_USER")

@@ -6,15 +6,13 @@ from datetime import datetime
 class SolvedProblemCreate(BaseModel):
     problem_id: int = Field(..., description="백준 문제 번호")
     solution_code: str = Field(..., description="해결 코드")
-    counter_example: Optional[str] = Field(None, description="반례")
+    input_generator: Optional[str] = Field(None, description="입력 생성기")
 
 
 class SolvedProblemResponse(BaseModel):
-    id: int
-    user_id: int
     problem_id: int
     solution_code: str
-    counter_example: Optional[str]
+    input_generator: Optional[str]
     submitted_at: datetime
 
     class Config:
@@ -24,6 +22,7 @@ class SolvedProblemResponse(BaseModel):
 class ProblemMetadataCreate(BaseModel):
     problem_id: int = Field(..., description="백준 문제 번호")
     title: str = Field(..., description="문제 제목")
+    description: str = Field(..., description="문제 설명")
     difficulty: Optional[int] = Field(None, description="난이도")
     category: Optional[str] = Field(None, description="문제 카테고리")
 

@@ -5,6 +5,8 @@ from fastapi import Depends, HTTPException
 from database.mysql_connection import SessionLocal
 from app.user.user_repository import UserRepository
 from app.user.user_service import UserService
+from app.solved_problem.solved_problem_service import SolvedProblemService
+from app.solved_problem.solved_problem_repository import SolvedProblemRepository
 from app.user.user_schema import UserDB
 from app.auth import get_current_user_email
 
@@ -34,6 +36,20 @@ def get_user_service(db: Session = Depends(get_db)) -> UserService:
     """
     user_repo = UserRepository(db)
     return UserService(user_repo)
+
+
+def get_solved_problem_repository(db: Session = Depends(get_db)) -> SolvedProblemRepository:
+    """
+    FastAPI에서 사용할 SolvedProblemRepository 객체를 의존성 주입으로 제공
+    """
+    return SolvedProblemRepository(db)
+
+
+def get_solved_problem_service(repo: SolvedProblemRepository = Depends(get_solved_problem_repository)) -> SolvedProblemService:
+    """
+    FastAPI에서 사용할 SolvedProblemService 객체를 의존성 주입으로 제공
+    """
+    return SolvedProblemService(repo)
 
 
 def get_current_user(

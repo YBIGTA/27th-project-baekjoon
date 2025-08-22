@@ -16,6 +16,3 @@ class UserModel(Base):
     salt: Mapped[str] = mapped_column(String(255), nullable=False)
     username: Mapped[str] = mapped_column(String(100), nullable=True)
     created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-
-    # 관계 설정
-    solved_problems = relationship("SolvedProblemModel", back_populates="user")

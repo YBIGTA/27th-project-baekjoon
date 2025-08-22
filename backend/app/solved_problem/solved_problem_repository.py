@@ -10,45 +10,36 @@ class SolvedProblemRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def create_solved_problem(self, user_id: int, solved_problem: SolvedProblemCreate) -> SolvedProblemModel:
+    def create_solved_problem(self, solved_problem: SolvedProblemCreate) -> SolvedProblemModel:
         db_solved_problem = SolvedProblemModel(
-            user_id=user_id,
             problem_id=solved_problem.problem_id,
             solution_code=solved_problem.solution_code,
-            counter_example=solved_problem.counter_example
+            input_generator=solved_problem.input_generator
         )
         self.db.add(db_solved_problem)
         self.db.commit()
         self.db.refresh(db_solved_problem)
         return db_solved_problem
 
-    def get_user_solved_problems(self, user_id: int, skip: int = 0, limit: int = 100) -> List[SolvedProblemModel]:
+    def get_problem_solution(self, problem_id: int) -> Optional[SolvedProblemModel]:
         return self.db.query(SolvedProblemModel).filter(
-            SolvedProblemModel.user_id == user_id
-        ).offset(skip).limit(limit).all()
-
-    def get_user_problem_solution(self, user_id: int, problem_id: int) -> Optional[SolvedProblemModel]:
-        return self.db.query(SolvedProblemModel).filter(
-            and_(
-                SolvedProblemModel.user_id == user_id,
-                SolvedProblemModel.problem_id == problem_id
-            )
+            SolvedProblemModel.problem_id == problem_id
         ).first()
 
-    def update_solved_problem(self, user_id: int, problem_id: int, solved_problem: SolvedProblemCreate) -> Optional[SolvedProblemModel]:
-        db_solved_problem = self.get_user_problem_solution(user_id, problem_id)
+    def update_solved_problem(self, problem_id: int, solved_problem: SolvedProblemCreate) -> Optional[SolvedProblemModel]:
+        db_solved_problem = self.get_problem_solution(problem_id)
         if not db_solved_problem:
             return None
 
         db_solved_problem.solution_code = solved_problem.solution_code
-        db_solved_problem.counter_example = solved_problem.counter_example
+        db_solved_problem.input_generator = solved_problem.input_generator
 
         self.db.commit()
         self.db.refresh(db_solved_problem)
         return db_solved_problem
 
-    def delete_solved_problem(self, user_id: int, problem_id: int) -> bool:
-        db_solved_problem = self.get_user_problem_solution(user_id, problem_id)
+    def delete_solved_problem(self, problem_id: int) -> bool:
+        db_solved_problem = self.get_problem_solution(problem_id)
         if not db_solved_problem:
             return False
 
@@ -60,6 +51,7 @@ class SolvedProblemRepository:
         db_problem_metadata = ProblemMetadataModel(
             problem_id=problem_metadata.problem_id,
             title=problem_metadata.title,
+            description=problem_metadata.description,
             difficulty=problem_metadata.difficulty,
             category=problem_metadata.category
         )
@@ -79,6 +71,7 @@ class SolvedProblemRepository:
             return None
 
         db_problem_metadata.title = problem_metadata.title
+        db_problem_metadata.description = problem_metadata.description
         db_problem_metadata.difficulty = problem_metadata.difficulty
         db_problem_metadata.category = problem_metadata.category
 

@@ -72,28 +72,27 @@ services:
   code-runner-api:
     build: ./code-runner
     container_name: code-runner-api
-    command: uvicorn app.api:app --host 0.0.0.0 --port 8000
+    command: uvicorn main:app --host 0.0.0.0 --port 8001
     ports:
-      - "8001:8000"
+      - "8001:8001"
     depends_on:
       - redis
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
       interval: 30s
       timeout: 10s
       retries: 3
 
   code-runner-worker:
     build: ./code-runner
-    runtime: kata
     container_name: code-runner-worker
     command: celery -A app.worker worker --loglevel=info --concurrency=50
     deploy:
       resources:
         limits:
-          cpus: '16'
-          memory: 7G
+          cpus: '12'
+          memory: 6G
     depends_on:
       - redis
     restart: unless-stopped

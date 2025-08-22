@@ -4,6 +4,8 @@ from dotenv import load_dotenv
 from pathlib import Path
 from celery import Celery
 
+PORT = 8001
+
 # 프로젝트 내부 경로를 다음과 같이 만듭니다: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 

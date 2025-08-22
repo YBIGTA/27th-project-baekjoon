@@ -14,4 +14,4 @@ class SolvedProblemModel(Base):
     counter_example: Mapped[str] = mapped_column(Text, nullable=True)
     submitted_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
-    user = relationship("UserModel", back_populates="solved_problems")
+    user = relationship("UserModel", back_populates="submissions")

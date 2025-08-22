@@ -7,7 +7,7 @@ from database.mysql_connection import Base
 class ProblemMetadataModel(Base):
     __tablename__ = "problem_metadata"
 
-    problem_id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    problem_id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, unique=True)
     title: Mapped[str] = mapped_column(String(500), nullable=False)
     difficulty: Mapped[int] = mapped_column(Integer, nullable=True)
     category: Mapped[str] = mapped_column(String(100), nullable=True)

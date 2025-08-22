@@ -18,4 +18,4 @@ class UserModel(Base):
     created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     # 관계 설정
-    solved_problems = relationship("SolvedProblemModel", back_populates="user")
+    submissions = relationship("SolvedProblemModel", back_populates="user")

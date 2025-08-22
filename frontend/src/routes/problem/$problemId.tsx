@@ -1,5 +1,6 @@
-import { useState } from "react"
+import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
+import { useMutation } from '@tanstack/react-query'
 import { ChevronDown, ChevronUp, Play, RotateCcw, Save } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -31,21 +32,20 @@ function SearchResultPage() {
   const [output, setOutput] = useState("")
   const [selectedLanguage, setSelectedLanguage] = useState("javascript")
 
-  const [isRunning, setIsRunning] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
   const [counterExample, setCounterExample] = useState<string | null>(null)
   const [executionResult, setExecutionResult] = useState<CodeExecutionResult | null>(null)
 
-  const executeCode = async (): Promise<CodeExecutionResult> => {
-    try {
-      const response = await fetch('http://localhost:8001/run-code', {
+  // React Query를 사용한 코드 실행 함수
+  const executeCodeMutation = useMutation({
+    mutationFn: async ({ language, code }: { language: string; code: string }): Promise<CodeExecutionResult> => {
+      const response = await fetch('http://localhost:8000/execute-code', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          language: selectedLanguage,
-          code: code
+          language,
+          code
         })
       })
 
@@ -53,31 +53,13 @@ function SearchResultPage() {
         throw new Error('코드 실행 실패')
       }
 
-      const result = await response.json()
-      
-      // 실행 결과 분석 (간단한 예시)
-      const isCorrect = result.output.includes('정답') || result.output.includes('통과')
-      const status = isCorrect ? 'accepted' : 'wrong_answer'
-      
-      return {
-        output: result.output,
-        executionTime: Math.floor(Math.random() * 100) + 1, // 실제로는 측정 필요
-        memoryUsage: Math.random() * 10 + 0.1, // 실제로는 측정 필요
-        status: status,
-        counterExample: !isCorrect ? "반례 발견!\n입력: 1000000\n예상 출력: 1000000\n실제 출력: 오류" : undefined
-      }
-    } catch (error) {
-      return {
-        output: "코드 실행 중 오류가 발생했습니다.",
-        executionTime: 0,
-        memoryUsage: 0,
-        status: 'runtime_error'
-      }
+      return await response.json()
     }
-  }
+  })
 
-  const saveToDatabase = async (result: CodeExecutionResult) => {
-    try {
+  // React Query를 사용한 결과 저장 함수
+  const saveResultMutation = useMutation({
+    mutationFn: async ({ problemId, code, counterExample }: { problemId: string; code: string; counterExample?: string }) => {
       const token = localStorage.getItem('authToken')
       
       const response = await fetch('http://localhost:8000/solved-problems/', {
@@ -89,7 +71,7 @@ function SearchResultPage() {
         body: JSON.stringify({
           problem_id: parseInt(problemId),
           solution_code: code,
-          counter_example: result.counterExample || null
+          counter_example: counterExample || null
         })
       })
 
@@ -98,18 +80,17 @@ function SearchResultPage() {
       }
 
       return await response.json()
-    } catch (error) {
-      console.error('저장 실패:', error)
-      throw error
     }
-  }
+  })
 
   const handleRunCode = async () => {
-    setIsRunning(true)
     setIsTerminalOpen(true)
     
     try {
-      const result = await executeCode()
+      const result = await executeCodeMutation.mutateAsync({ 
+        language: selectedLanguage, 
+        code 
+      })
       setExecutionResult(result)
       setOutput(result.output)
       setCounterExample(result.counterExample || null)
@@ -117,8 +98,6 @@ function SearchResultPage() {
     } catch (error) {
       console.error('코드 실행 실패:', error)
       setOutput("코드 실행 중 오류가 발생했습니다.")
-    } finally {
-      setIsRunning(false)
     }
   }
 
@@ -128,15 +107,15 @@ function SearchResultPage() {
       return
     }
 
-    setIsSaving(true)
-    
     try {
-      await saveToDatabase(executionResult)
+      await saveResultMutation.mutateAsync({
+        problemId,
+        code,
+        counterExample: executionResult.counterExample
+      })
       alert('결과가 성공적으로 저장되었습니다!')
     } catch (error) {
       alert('저장에 실패했습니다. 로그인 상태를 확인해주세요.')
-    } finally {
-      setIsSaving(false)
     }
   }
 
@@ -261,12 +240,12 @@ function SearchResultPage() {
                     <RotateCcw className="h-4 w-4" />
                     초기화
                   </Button>
-                  <Button 
-                    onClick={handleRunCode} 
-                    disabled={isRunning}
-                    className="flex items-center gap-2 bg-primary hover:bg-primary/90 disabled:opacity-50"
-                  >
-                    {isRunning ? (
+                                      <Button 
+                      onClick={handleRunCode} 
+                      disabled={executeCodeMutation.isPending}
+                      className="flex items-center gap-2 bg-primary hover:bg-primary/90 disabled:opacity-50"
+                    >
+                      {executeCodeMutation.isPending ? (
                       <>
                         <Spinner size="sm" />
                         실행 중...
@@ -278,13 +257,13 @@ function SearchResultPage() {
                       </>
                     )}
                   </Button>
-                  <Button 
-                    onClick={handleSaveResult}
-                    disabled={!executionResult || isSaving}
-                    variant="outline"
-                    className="flex items-center gap-2"
-                  >
-                    {isSaving ? (
+                                      <Button 
+                      onClick={handleSaveResult}
+                      disabled={!executionResult || saveResultMutation.isPending}
+                      variant="outline"
+                      className="flex items-center gap-2"
+                    >
+                      {saveResultMutation.isPending ? (
                       <>
                         <Spinner size="sm" />
                         저장 중...

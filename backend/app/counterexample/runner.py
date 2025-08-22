@@ -44,14 +44,14 @@ class CounterexampleRunner:
             result = await graph.ainvoke(initial_state)
 
             correct_solution = result.get("correct_solution")
-            input_generator = result.get("input_generator")
+            input_generator = result.get("test_case_generator")
             if not correct_solution or not input_generator:
                 raise ValueError("Correct solution or input generator is missing")
             
             return CounterexampleSuccess(
                 counterexample_found=result.get("counterexample_found", False),
                 counterexample_input=result.get("counterexample_input"),
-                counterexample_detail=result.get("counterexample_detail"),
+                counterexample_detail=None,
                 test_cases_count=len(result.get("test_cases", [])),
                 correct_solution=correct_solution,
                 input_generator=input_generator

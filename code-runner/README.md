@@ -1,115 +1,135 @@
-# Code Runner 서비스
+# Code Runner 서비스 (Job Queue Architecture)
 
 ## 개요
 
-Code Runner는 사용자로부터 제출된 코드 스니펫을 안전하게 실행하기 위해 설계된 FastAPI 기반 서비스입니다. Docker를 활용하여 격리된 샌드박스 환경에서 코드를 실행하므로, 온라인 코딩 플랫폼이나 교육용 도구와 같이 신뢰할 수 없는 코드를 평가해야 하는 애플리케이션에 적합합니다.
+Code Runner는 사용자로부터 제출된 코드를 안정적이고 확장 가능한 방식으로 실행하기 위해 **Job Queue(작업 큐)** 아키텍처로 설계된 서비스입니다. FastAPI, Celery, Redis를 기반으로 하여 높은 동시성 처리 능력과 빠른 API 응답 속도를 제공합니다.
 
-## 주요 기능
+## 아키텍처
 
-- **보안 실행**: 사용자 코드는 호스트 및 다른 서비스와 완전히 격리된 임시 Docker 컨테이너 내부에서 실행됩니다.
-- **리소스 제한**: 각 컨테이너는 무분별한 사용을 방지하기 위해 CPU 및 메모리 사용량이 제한됩니다.
-- **네트워크 차단**: 실행 컨테이너는 외부 API 호출이나 악의적인 공격을 방지하기 위해 네트워킹이 비활성화됩니다.
-- **비동기 API**: 서비스는 비동기 엔드포인트를 사용하여 블로킹 없이 여러 요청을 효율적으로 처리합니다.
-- **헬스 체크 및 자동 재시작**: 서비스의 상태를 지속적으로 확인하고, 문제 발생 시 자동으로 재시작하여 안정성을 높입니다.
+이 서비스는 역할에 따라 세 개의 주요 컴포넌트로 구성됩니다.
 
-## 시작하기
+`[User] -> [code-runner-api] -> [redis] <- [code-runner-worker] -> [Docker Container]`
 
-### 요구사항
+1.  **API Server (`code-runner-api`)**: FastAPI로 구현된 API 서버입니다. 코드 실행 요청을 받아 즉시 처리하지 않고, 작업(Job)으로 만들어 Redis Queue에 넣은 후 작업 ID를 반환합니다. 매우 가볍고 빠르게 동작합니다.
 
-- Docker
-- Docker Compose
-- Python 3.12 이상
+2.  **Message Queue (`redis`)**: Celery의 메시지 브로커 역할을 하는 인메모리 데이터 저장소입니다. API 서버가 전달한 작업들을 대기열(Queue)에 저장하고, Worker가 가져갈 수 있도록 전달합니다.
 
-### 서비스 실행 방법
+3.  **Worker (`code-runner-worker`)**: Celery로 구현된 작업자입니다. Redis Queue를 지속적으로 감시하며, 새로운 작업이 들어오면 가져와서 실제로 Docker 컨테이너를 생성하여 코드를 실행합니다. 실제 연산과 리소스 사용은 이 컴포넌트에서 발생합니다.
 
-#### Docker Compose 사용 (권장)
+## 서비스 구성
 
-이 서비스는 메인 프로젝트의 `docker-compose.yml`의 일부로 실행되도록 설정되어 있습니다.
+`docker-compose.yml` 파일은 위 아키텍처를 다음과 같이 세 개의 서비스로 정의합니다.
 
-1.  **서비스 빌드 및 실행:**
-    ```bash
-    # 프로젝트 최상위 디렉터리에서 실행
-    docker-compose up --build code-runner
-    ```
-2.  서비스는 `http://localhost:8001`에서 접근할 수 있습니다.
+-   **`code-runner-api`**: 사용자의 HTTP 요청을 처리하는 API 서버.
+-   **`code-runner-worker`**: 실제 코드 실행을 담당하는 Celery 워커. 보안을 위해 Kata Container 위에서 동작하며, 동시에 50개의 작업을 처리하도록 설정되어 있습니다.
+-   **`redis`**: API 서버와 워커를 연결하는 메시지 브로커.
 
-#### 단독 실행
-
-호스트 머신에서 Docker 데몬이 실행 중인 경우, 서비스를 직접 실행할 수도 있습니다.
-
-1.  **의존성 설치:**
-    ```bash
-    pip install -r requirements.txt
-    ```
-
-2.  **서버 실행:**
-    ```bash
-    # 참고: 포트는 백엔드 서비스와의 충돌을 피하기 위해 8001로 설정되었습니다.
-    uvicorn main:app --host 0.0.0.0 --port 8001
-    ```
+![alt text](mermaid-diagram-2025-08-21-131212.png)
 
 ## API 명세
 
 ### `POST /run-code`
 
-주어진 코드 스니펫을 실행하고 표준 출력 또는 오류를 반환합니다.
+코드 실행을 요청하고 작업 ID를 발급받습니다.
 
-- **요청 본문 (Request Body)**:
+-   **요청 본문 (Request Body)**:
+    ```json
+    {
+      "language": "python",
+      "code": "print('Hello from Celery!')"
+    }
+    ```
+    -   `language` (string, 필수): 프로그래밍 언어. (`python`, `javascript`, `java`, `cpp`, `c`)
+    -   `code` (string, 필수): 실행할 소스 코드.
 
-  ```json
-  {
-    "language": "python",
-    "code": "print('Hello, from the container!')"
-  }
-  ```
+-   **성공 응답 (`200 OK`)**:
+    요청이 성공적으로 큐에 추가되면, 해당 작업의 ID가 반환됩니다.
+    ```json
+    {
+      "task_id": "a1b2c3d4-e5f6-7890-1234-567890abcdef"
+    }
+    ```
 
-  - `language` (string, 필수): 코드의 프로그래밍 언어입니다. 현재는 "python"만 지원됩니다.
-  - `code` (string, 필수): 실행할 소스 코드입니다.
+### `GET /results/{task_id}`
 
-- **성공 응답 (`200 OK`)**:
+작업 ID를 사용하여 코드 실행 상태 및 결과를 조회합니다.
 
-  ```json
-  {
-    "output": "Hello, from the container!\n"
-  }
-  ```
+-   **요청 경로 (Path)**:
+    -   `task_id` (string, 필수): `/run-code` 요청 시 반환받은 작업 ID.
 
-- **오류 응답 (`200 OK`)**:
+-   **응답 (Response)**:
+    -   **작업 진행 중:**
+        ```json
+        {
+          "status": "PENDING",
+          "result": null
+        }
+        ```
+    -   **작업 완료:**
+        ```json
+        {
+          "status": "SUCCESS",
+          "result": {
+            "output": "Hello from Celery!\n"
+          }
+        }
+        ```
+    -   **작업 실패:**
+        ```json
+        {
+          "status": "FAILURE",
+          "result": "...error message..."
+        }
+        ```
 
-  ```json
-  {
-    "error": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\nNameError: name 'prit' is not defined\n"
-  }
-  ```
+## 보안 강화: Kata Container 설정
 
-### `GET /health`
+실제 코드 실행을 담당하는 `code-runner-worker` 서비스는 컨테이너 탈출(escape) 공격까지 방어하는 최상위 보안을 적용하기 위해 Kata Container 위에서 실행되도록 설정되어 있습니다. 이는 Worker 서비스 전체를 경량 가상 머신(VM) 안에 배치하여 하드웨어 수준의 격리를 제공합니다.
 
-서비스의 동작 상태를 확인하는 헬스 체크 엔드포인트입니다.
+### 호스트 설정 (Amazon Linux 2023 on EC2 기준)
 
-- **요청 본문**: 없음
-- **성공 응답 (`200 OK`)**:
-  서비스가 정상적으로 실행 중인 경우, 다음과 같은 응답을 반환합니다.
-  ```json
-  {
-    "status": "ok"
-  }
-  ```
+1.  **EC2 인스턴스 선택**:
+    -   **AMI**: `Amazon Linux 2023`
+    -   **인스턴스 유형**: 중첩 가상화(Nested Virtualization)를 지원하는 인스턴스 (예: `.metal` 유형 또는 `m6i.4xlarge`와 같은 최신 세대 non-metal 인스턴스)
 
-## Docker Compose 상세 설정
+2.  **Docker 및 Kata Container 설치**:
+    EC2 인스턴스에 SSH로 접속하여 다음 명령어를 실행합니다.
+    ```bash
+    # 시스템 및 Docker 설치
+    sudo dnf update -y
+    sudo dnf install docker -y
+    sudo systemctl start docker
+    sudo systemctl enable docker
+    sudo usermod -aG docker ec2-user
+    # (로그아웃 후 다시 접속)
 
-`docker-compose.yml` 파일에는 서비스의 안정성을 높이기 위해 다음과 같은 설정이 추가되었습니다.
+    # Kata Containers 리포지토리 추가 및 설치
+    ARCH=$(uname -m)
+    sudo dnf config-manager --add-repo "https://download.opensuse.org/repositories/home:/katacontainers:/releases:/${ARCH}:/stable/home:katacontainers:releases:${ARCH}:stable.repo"
+    sudo dnf install kata-containers -y
+    ```
 
-- **`restart: unless-stopped`**: 컨테이너에 예기치 않은 오류가 발생하더라도, 사용자가 직접 중지하지 않는 한 자동으로 재시작됩니다.
-- **`healthcheck`**: 주기적으로 `/health` API를 호출하여 컨테이너가 정상적으로 동작하는지 확인합니다. 만약 비정상 상태가 감지되면 컨테이너가 재시작될 수 있습니다.
+3.  **Docker 데몬 설정**:
+    Docker가 Kata를 런타임으로 인식하도록 `/etc/docker/daemon.json` 파일을 생성합니다.
+    ```bash
+    sudo tee /etc/docker/daemon.json > /dev/null <<EOF
+    {
+      "runtimes": {
+        "kata": {
+          "path": "/usr/bin/kata-runtime"
+        }
+      }
+    }
+    EOF
 
-## 보안 모델
+    sudo systemctl restart docker
+    ```
 
-이 서비스는 "Docker-out-of-Docker" 접근 방식을 사용합니다. `code-runner` 컨테이너 자체는 호스트의 Docker 소켓 (`/var/run/docker.sock`)에 접근 권한을 가집니다. 이는 높은 권한을 부여하지만, 서비스는 통제된 게이트웨이 역할을 하여 위험을 완화하도록 설계되었습니다.
+## 배포
 
-**사용자가 제출한 모든 코드는 서비스 컨테이너 자체에서 절대 실행되지 않습니다.** 대신, 다음과 같은 제한 사항이 적용된 **별도의, 수명이 짧은, 샌드박스 처리된 컨테이너**에서 실행됩니다.
-
-- **네트워크 접근 불가** (`network_disabled=True`)
-- **엄격한 메모리 제한** (`mem_limit="128m"`)
-- **제한된 CPU 사용량** (`cpu_quota`)
-
-이 모델은 잠재적으로 악의적인 사용자 코드가 격리된 상태를 유지하고 호스트 시스템이나 다른 서비스를 손상시키지 않도록 보장합니다.
+1.  **인스턴스 준비**: `docker-compose.yml`에 설정된 리소스(`cpus: '16'`, `memory: 7G`)를 감당할 수 있는 고사양 인스턴스를 준비합니다.
+2.  **Kata Container 설정**: 호스트에 Docker와 Kata Container를 설치하고 Docker 데몬을 설정합니다.
+3.  **서비스 실행**: 프로젝트 최상위 디렉토리에서 아래 명령어를 실행합니다.
+    ```bash
+    docker-compose up -d --build
+    ```

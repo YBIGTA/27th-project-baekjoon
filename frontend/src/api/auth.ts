@@ -61,7 +61,8 @@ export const tokenStorage = {
   },
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+
+export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const token = tokenStorage.get()
   const res = await fetch(`${BASE_URL}${path}`, {
     ...init,

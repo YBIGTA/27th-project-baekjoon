@@ -69,12 +69,10 @@ async def get_problem_metadata(
     try:
         metadata = await service.get_problem_metadata(problem_id)
         return metadata
-    except HTTPException as e:
-        raise e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="문제 메타데이터를 가져오는 중 오류가 발생했습니다."
+            detail="문제 메타데이터를 가져오는 중 오류가 발생했습니다: " + str(e)
         )
 
 

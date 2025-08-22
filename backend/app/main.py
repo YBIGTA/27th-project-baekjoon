@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
 from app.user.user_router import user
+from app.crawler.crawler_router import router as crawler_router
 from app.config import PORT
 from app.database_init import init_database
 
@@ -17,6 +18,7 @@ app.add_middleware(
 )
 
 app.include_router(user)
+app.include_router(crawler_router)
 
 @app.get("/")
 def root():

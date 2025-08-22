@@ -39,6 +39,8 @@ services:
       ACCESS_TOKEN_EXPIRE_MINUTES: "${ACCESS_TOKEN_EXPIRE_MINUTES}"
     ports:
       - "8000:8000"
+    env_file:
+      - ./backend/.env
 
   ai-server:
     build:

@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
 from app.user.user_router import user
-from app.solved_problem.solved_problem_router import router as solved_problem_router
+from app.problem.problem_router import router as solved_problem_router
 from app.crawler.crawler_router import router as crawler_router
 from app.config import PORT
 from app.database_init import init_database

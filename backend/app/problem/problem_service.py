@@ -1,8 +1,8 @@
 from fastapi import Depends
 from sqlalchemy.orm import Session
 from typing import Optional
-from app.solved_problem.solved_problem_repository import SolvedProblemRepository
-from app.solved_problem.solved_problem_schema import (
+from app.problem.problem_repository import SolvedProblemRepository
+from app.problem.problem_schema import (
     SolvedProblemCreate, 
     SolvedProblemResponse, 
     ProblemMetadataCreate,

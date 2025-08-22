@@ -5,8 +5,8 @@ from fastapi import Depends, HTTPException
 from database.mysql_connection import SessionLocal
 from app.user.user_repository import UserRepository
 from app.user.user_service import UserService
-from app.solved_problem.solved_problem_service import SolvedProblemService
-from app.solved_problem.solved_problem_repository import SolvedProblemRepository
+from app.problem.problem_service import SolvedProblemService
+from app.problem.problem_repository import SolvedProblemRepository
 from app.crawler.acmicpc_crawler import AcmicpcCrawler
 from app.user.user_schema import UserDB
 from app.auth import get_current_user_email

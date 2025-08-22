@@ -1,9 +1,8 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import and_
-from typing import List, Optional
+from typing import Optional
 from app.models.solved_problem_model import SolvedProblemModel
 from app.models.problem_metadata_model import ProblemMetadataModel
-from app.solved_problem.solved_problem_schema import SolvedProblemCreate, ProblemMetadataCreate
+from app.problem.problem_schema import SolvedProblemCreate, ProblemMetadataCreate
 
 
 class SolvedProblemRepository:

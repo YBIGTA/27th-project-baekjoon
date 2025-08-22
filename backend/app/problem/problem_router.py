@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
 from app.dependencies import get_solved_problem_service, get_current_user
-from app.solved_problem.solved_problem_service import SolvedProblemService
-from app.solved_problem.solved_problem_schema import (
+from app.problem.problem_service import SolvedProblemService
+from app.problem.problem_schema import (
     SolvedProblemCreate,
     SolvedProblemResponse,
     ProblemMetadataCreate,

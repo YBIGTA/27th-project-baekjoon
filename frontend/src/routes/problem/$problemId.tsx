@@ -14,7 +14,7 @@ import Editor from '@monaco-editor/react'
 import StyledMarkdown from '@/components/molecules/StyledMarkdown' // kept for now (execution output area)
 import { ProblemViewer } from '@/components/organisms/problem-viewer'
 import { tokenStorage } from "@/api/auth"
-import { useProblemMetadataQuery } from "@/api/problem"
+import { useProblemMetadataQuery, useCalcCounterExampleMutation } from "@/api/problem"
 
 
 export const Route = createFileRoute('/problem/$problemId')({
@@ -44,6 +44,8 @@ function SearchResultPage() {
     throw redirect({ to: '/' })
   }
   const { data, isLoading } = useProblemMetadataQuery(parsedProblemId)
+  const calcCounterExampleMutation = useCalcCounterExampleMutation()
+
   const [code, setCode] = useState(`// 여기에 코드를 작성하세요`)
   const [isTerminalOpen, setIsTerminalOpen] = useState(false)
   const [output, setOutput] = useState("")
@@ -60,19 +62,13 @@ function SearchResultPage() {
     setIsTerminalOpen(true)
     
     try {
-      // 시뮬레이션을 위한 지연
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      const res = await calcCounterExampleMutation.mutateAsync({
+        problemId: parsedProblemId,
+        user_code: code,
+        user_code_language: selectedLanguage
+      })
       
-      // TODO: 실제 코드 실행 API 호출
-      console.log('코드 실행:', { problemId, code, selectedLanguage })
-      
-      // 시뮬레이션 결과
-      setOutput("실행 결과:\n입력: 5\n출력: 5\n\n테스트 케이스 1: 통과 ✅\n테스트 케이스 2: 통과 ✅\n\n반례 탐색 중...")
-      
-      // 반례 탐색 시뮬레이션
-      await new Promise(resolve => setTimeout(resolve, 1500))
-      setCounterExample("반례 발견!\n\n입력: 1000000\n사용자 코드 출력: 1000000\n정답 코드 출력: 1000000\n\n결과: 정답입니다! 🎉")
-      
+      setCounterExample(`반례 발견!\n\n입력: \n${res.counter_example_input}`)
     } catch (error) {
       console.error('코드 실행 실패:', error)
       setOutput("코드 실행 중 오류가 발생했습니다.")

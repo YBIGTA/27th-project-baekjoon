@@ -39,7 +39,7 @@ export function useCalcCounterExampleMutation() {
       request<CalcCounterExampleResponse>(`/problem/${vars.problemId}/calc_counter_example`, {
         method: 'POST',
         body: JSON.stringify({
-          user_code: vars.user_code,
+            user_code: vars.user_code,
             user_code_language: vars.user_code_language,
         }),
       }),

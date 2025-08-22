@@ -71,8 +71,6 @@ class AcmicpcCrawler:
         if not data or "problemId" not in data:
             return None
 
-        print(data.get("tags", []))
-
         return SolvedAcData(
             level=data.get("level", 0),
             tags=[ProblemTag(**tag) for tag in data.get("tags", [])]

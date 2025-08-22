@@ -1,7 +1,6 @@
 import logging
 from langchain_core.output_parsers import StrOutputParser
 from app.counterexample.state import CounterexampleState
-from app.counterexample.state import CounterexampleState
 from app.counterexample.prompts.input_gen import INPUT_GEN_PROMPT
 from app.counterexample.tools.chat_client import get_counterexample_chat
 from app.counterexample.utils.markdown import extract_code_block

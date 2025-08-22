@@ -11,12 +11,13 @@ import Header from "@/components/organisms/header"
 import Footer from "@/components/organisms/footer"
 import { Protected } from '@/components/Protected'
 import Editor from '@monaco-editor/react'
+import { tokenStorage } from "@/api/auth"
 
 
 export const Route = createFileRoute('/problem/$problemId')({
   beforeLoad: async ({ context }) => {
     // SSR not used; rely on client-side token presence checked in useMe
-    const token = typeof window !== 'undefined' ? (localStorage.getItem('bh_access_token') || sessionStorage.getItem('bh_access_token')) : null
+    const token = tokenStorage.get()
     if (!token) {
       throw redirect({ to: '/login' })
     }

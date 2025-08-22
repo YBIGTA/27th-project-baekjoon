@@ -46,7 +46,11 @@ class SolvedProblemService:
             if not data:
                 raise ValueError("Failed to fetch problem metadata")
             
-            category = ','.join(map(lambda tag: tag.displayNames[0].name, data.tags))
+            category = ','.join(
+                tag.displayNames[0].name
+                for tag in data.tags
+                if tag.displayNames and len(tag.displayNames) > 0
+            )
             problem_metadata = ProblemMetadataCreate(
                 problem_id=problem_id,
                 title=data.title,

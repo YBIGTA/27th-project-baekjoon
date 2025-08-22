@@ -23,6 +23,10 @@ async def get_result(task_id: str):
     """작업 ID를 사용하여 코드 실행 결과를 조회합니다."""
     task_result = AsyncResult(task_id, app=celery_app)
 
+    if task_result.backend is None:
+        # 백엔드가 구성되지 않았거나 작업을 찾을 수 없는 경우
+        raise HTTPException(status_code=404, detail="작업을 찾을 수 없습니다.")
+
     if not task_result.ready():
         # 작업이 아직 완료되지 않았을 경우
         return {"status": task_result.status, "result": None}

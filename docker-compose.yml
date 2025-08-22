@@ -89,8 +89,6 @@ services:
     runtime: kata
     container_name: code-runner-worker
     command: celery -A app.worker worker --loglevel=info --concurrency=50
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
     deploy:
       resources:
         limits:
@@ -99,26 +97,3 @@ services:
     depends_on:
       - redis
     restart: unless-stopped
-
-volumes:
-  mysql_data:
-
-  code-runner:
-    build: ./code-runner
-    runtime: kata
-    container_name: code-runner
-    ports:
-      - "8001:8000"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    deploy:
-      resources:
-        limits:
-          cpus: '16'
-          memory: 7G
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3

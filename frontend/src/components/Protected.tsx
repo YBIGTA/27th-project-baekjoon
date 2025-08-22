@@ -4,7 +4,7 @@ import { useAuth } from '@/context/auth'
 
 export function Protected({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth()
-  if (!isAuthenticated && typeof window !== 'undefined') {
+  if (!isAuthenticated) {
     throw redirect({ to: '/login' })
   }
   return <>{children}</>

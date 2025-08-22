@@ -1,6 +1,6 @@
 import { useState } from "react"
-import { createFileRoute } from '@tanstack/react-router'
-import { ChevronDown, ChevronUp, Play, RotateCcw, Save } from "lucide-react"
+import { createFileRoute, redirect } from '@tanstack/react-router'
+import { ChevronDown, ChevronUp, Play, RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
@@ -9,9 +9,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Spinner } from "@/components/ui/spinner"
 import Header from "@/components/organisms/header"
 import Footer from "@/components/organisms/footer"
+import { Protected } from '@/components/Protected'
+import Editor from '@monaco-editor/react'
+import { tokenStorage } from "@/api/auth"
 
 
 export const Route = createFileRoute('/problem/$problemId')({
+  beforeLoad: async ({ context }) => {
+    // SSR not used; rely on client-side token presence checked in useMe
+    const token = tokenStorage.get()
+    if (!token) {
+      throw redirect({ to: '/login' })
+    }
+  },
   component: SearchResultPage,
 })
 
@@ -152,6 +162,7 @@ function SearchResultPage() {
   }
 
   return (
+  <Protected>
     <div className="min-h-screen bg-background flex flex-col">
       <Header showAuthButtons={false} maxWidth={false} />
 
@@ -268,7 +279,7 @@ function SearchResultPage() {
                   >
                     {isRunning ? (
                       <>
-                        <Spinner size="sm" />
+                        <Spinner size="sm" className="text-white"/>
                         실행 중...
                       </>
                     ) : (
@@ -300,16 +311,33 @@ function SearchResultPage() {
               </div>
             </div>
 
-            <div className={`flex-1 p-4 min-h-0 ${isTerminalOpen ? "flex-[0.6]" : "flex-1"}`}>
-              <Textarea
+            <div className={`flex-1 p-0 min-h-0 ${isTerminalOpen ? "flex-[0.6]" : "flex-1"}`}>
+              <Editor
                 value={code}
-                onChange={(e) => setCode(e.target.value)}
-                className="w-full h-full font-mono text-sm resize-none border-border"
-                placeholder="코드를 입력하세요..."
+                onChange={(newValue) => setCode(newValue || '')}
+                language={selectedLanguage}
+                theme="light"
+                options={{
+                  selectOnLineNumbers: true,
+                  automaticLayout: true,
+                  scrollBeyondLastLine: false,
+                  wordWrap: 'off',
+                  minimap: { enabled: false },
+                  fontSize: 14,
+                  lineNumbers: 'on',
+                  folding: true,
+                  insertSpaces: true,
+                  renderWhitespace: 'selection',
+                  bracketPairColorization: { enabled: true },
+                  guides: {
+                    bracketPairs: true,
+                    indentation: true
+                  }
+                }}
               />
             </div>
 
-            <div className="border-t border-border">
+            <div className={`border-t border-border flex flex-col ${isTerminalOpen ? "flex-1" : ""}`}>
               <div
                 className="flex items-center justify-between p-3 bg-muted cursor-pointer hover:bg-muted/80"
                 onClick={() => setIsTerminalOpen(!isTerminalOpen)}
@@ -318,7 +346,7 @@ function SearchResultPage() {
                 {isTerminalOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
               </div>
               {isTerminalOpen && (
-                <div className="h-48 p-4 bg-card border-t border-border overflow-y-auto">
+                <div className="h-48 p-4 bg-card border-t border-border overflow-y-auto flex-1">
                   <pre className="text-sm font-mono text-muted-foreground whitespace-pre-wrap">
                     {output || "실행 버튼을 클릭하여 코드를 실행하세요."}
                   </pre>
@@ -349,5 +377,6 @@ function SearchResultPage() {
 
       <Footer />
     </div>
+  </Protected>
   )
 }

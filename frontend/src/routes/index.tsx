@@ -17,8 +17,6 @@ function HomePage() {
   const [searchTerm, setSearchTerm] = React.useState("")
   const navigate = useNavigate()
 
-  const [isSearching, setIsSearching] = React.useState(false)
-
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault()
@@ -29,22 +27,7 @@ function HomePage() {
   const handleSearch = async () => {
     const term = searchTerm.trim()
     if (!term) return
-    
-    setIsSearching(true)
-    
-    try {
-      // 시뮬레이션을 위한 지연
-      await new Promise(resolve => setTimeout(resolve, 500))
-      
-      // TODO: 실제 문제 검색 API 호출
-      console.log('문제 검색:', term)
-      
-      navigate({ to: '/problem/$problemId', params: { problemId: term } })
-    } catch (error) {
-      console.error('검색 실패:', error)
-    } finally {
-      setIsSearching(false)
-    }
+    navigate({ to: '/problem/$problemId', params: { problemId: term } })
   }
 
   return (
@@ -78,17 +61,10 @@ function HomePage() {
             <div className="flex gap-3 justify-center">
               <Button 
                 onClick={handleSearch}
-                disabled={isSearching || !searchTerm.trim()}
+                disabled={!searchTerm.trim()}
                 className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-2 disabled:opacity-50"
               >
-                {isSearching ? (
-                  <>
-                    <Spinner size="sm" />
-                    검색 중...
-                  </>
-                ) : (
-                  '검색'
-                )}
+                검색
               </Button>
             </div>
           </div>

@@ -232,3 +232,6 @@ notebook.pem
 # PDF and Excel files (assignment documents)
 *.pdf
 *.xlsx
+
+# Remove .DS_Store files
+.DS_Store

@@ -8,6 +8,7 @@ from app.user.user_service import UserService
 from app.problem.problem_service import SolvedProblemService
 from app.problem.problem_repository import SolvedProblemRepository
 from app.crawler.acmicpc_crawler import AcmicpcCrawler
+from app.counterexample.runner import CounterexampleRunner, runner
 from app.user.user_schema import UserDB
 from app.auth import get_current_user_email
 
@@ -26,6 +27,10 @@ def get_db() -> Generator[Session, None, None]:
 
 def get_crawler() -> AcmicpcCrawler:
     return AcmicpcCrawler()
+
+
+def get_counterexample_runner() -> CounterexampleRunner:
+    return runner
 
 
 def get_user_repository(db: Session = Depends(get_db)) -> UserRepository:
@@ -52,12 +57,13 @@ def get_solved_problem_repository(db: Session = Depends(get_db)) -> SolvedProble
 
 def get_solved_problem_service(
     repo: SolvedProblemRepository = Depends(get_solved_problem_repository),
-    crawler: AcmicpcCrawler = Depends(get_crawler)
+    crawler: AcmicpcCrawler = Depends(get_crawler),
+    counterexample_runner: CounterexampleRunner = Depends(get_counterexample_runner)
 ) -> SolvedProblemService:
     """
     FastAPI에서 사용할 SolvedProblemService 객체를 의존성 주입으로 제공
     """
-    return SolvedProblemService(repo, crawler)
+    return SolvedProblemService(repo, crawler, counterexample_runner)
 
 
 def get_current_user(

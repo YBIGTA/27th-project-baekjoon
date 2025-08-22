@@ -19,9 +19,8 @@ def should_have_inputs(state: CounterexampleState) -> str:
     """generate_inputs 이후 테스트케이스 생성기가 있는지 확인하여 다음 단계 결정"""
     return "ok" if state.get("test_case_generator") else "retry"
 
-def build_counterexample_graph():
-    """반례 찾기 워크플로우 그래프 구성"""
-    
+def _build_base_graph(entry_point: str = "solve"):
+    """기본 그래프 구조를 생성하는 공통 함수"""
     # StateGraph 생성
     graph = StateGraph(CounterexampleState)
     
@@ -31,7 +30,8 @@ def build_counterexample_graph():
     graph.add_node("run_and_compare", run_codes_and_compare)
     
     # 시작점 설정
-    graph.set_entry_point("solve")
+    graph.set_entry_point(entry_point)
+    
     # solve 이후 correct_solution이 없으면 다시 solve로 돌아가 재시도
     graph.add_conditional_edges(
         "solve",
@@ -62,3 +62,11 @@ def build_counterexample_graph():
     )
     
     return graph.compile()
+
+def build_counterexample_graph():
+    """반례 찾기 워크플로우 그래프 구성 (solve 노드부터 시작)"""
+    return _build_base_graph("solve")
+
+def build_counterexample_graph_from_compare():
+    """run_and_compare 노드부터 시작하는 반례 찾기 워크플로우 그래프 구성"""
+    return _build_base_graph("run_and_compare")

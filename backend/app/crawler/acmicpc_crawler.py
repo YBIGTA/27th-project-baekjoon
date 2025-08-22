@@ -95,5 +95,3 @@ class AcmicpcCrawler:
     def _get_section_html(self, soup: BeautifulSoup, section_id: str) -> str:
         section = soup.find("div", id=section_id)
         return str(section) if section else ""
-
-crawler = AcmicpcCrawler()

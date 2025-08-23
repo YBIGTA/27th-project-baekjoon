@@ -2,16 +2,17 @@ import { useState } from "react"
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { ChevronDown, ChevronUp, Play, RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
+import { Card } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Spinner } from "@/components/ui/spinner"
 import Header from "@/components/organisms/header"
 import Footer from "@/components/organisms/footer"
 import { Protected } from '@/components/Protected'
 import Editor from '@monaco-editor/react'
+import StyledMarkdown from '@/components/molecules/StyledMarkdown' // kept for now (execution output area)
+import { ProblemViewer } from '@/components/organisms/problem-viewer'
 import { tokenStorage } from "@/api/auth"
+import { useProblemMetadataQuery, useCalcCounterExampleMutation } from "@/api/problem"
 
 
 export const Route = createFileRoute('/problem/$problemId')({
@@ -36,117 +37,40 @@ interface CodeExecutionResult {
 
 function SearchResultPage() {
   const { problemId } = Route.useParams()
+  const parsedProblemId = parseInt(problemId, 10)
+  if (isNaN(parsedProblemId)) {
+    throw redirect({ to: '/' })
+  }
+  const { data, isLoading } = useProblemMetadataQuery(parsedProblemId)
+  const calcCounterExampleMutation = useCalcCounterExampleMutation()
+
   const [code, setCode] = useState(`// 여기에 코드를 작성하세요`)
   const [isTerminalOpen, setIsTerminalOpen] = useState(false)
   const [output, setOutput] = useState("")
   const [selectedLanguage, setSelectedLanguage] = useState("javascript")
 
   const [isRunning, setIsRunning] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
   const [counterExample, setCounterExample] = useState<string | null>(null)
   const [executionResult, setExecutionResult] = useState<CodeExecutionResult | null>(null)
 
-  const executeCode = async (): Promise<CodeExecutionResult> => {
-    try {
-      const response = await fetch('http://localhost:8001/run-code', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          language: selectedLanguage,
-          code: code
-        })
-      })
-
-      if (!response.ok) {
-        throw new Error('코드 실행 실패')
-      }
-
-      const result = await response.json()
-      
-      // 실행 결과 분석 (간단한 예시)
-      const isCorrect = result.output.includes('정답') || result.output.includes('통과')
-      const status = isCorrect ? 'accepted' : 'wrong_answer'
-      
-      return {
-        output: result.output,
-        executionTime: Math.floor(Math.random() * 100) + 1, // 실제로는 측정 필요
-        memoryUsage: Math.random() * 10 + 0.1, // 실제로는 측정 필요
-        status: status,
-        counterExample: !isCorrect ? "반례 발견!\n입력: 1000000\n예상 출력: 1000000\n실제 출력: 오류" : undefined
-      }
-    } catch (error) {
-      return {
-        output: "코드 실행 중 오류가 발생했습니다.",
-        executionTime: 0,
-        memoryUsage: 0,
-        status: 'runtime_error'
-      }
-    }
-  }
-
-  const saveToDatabase = async (result: CodeExecutionResult) => {
-    try {
-      const token = localStorage.getItem('authToken')
-      
-      const response = await fetch('http://localhost:8000/solved-problems/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          problem_id: parseInt(problemId),
-          solution_code: code,
-          counter_example: result.counterExample || null
-        })
-      })
-
-      if (!response.ok) {
-        throw new Error('저장 실패')
-      }
-
-      return await response.json()
-    } catch (error) {
-      console.error('저장 실패:', error)
-      throw error
-    }
-  }
 
   const handleRunCode = async () => {
     setIsRunning(true)
     setIsTerminalOpen(true)
     
     try {
-      const result = await executeCode()
-      setExecutionResult(result)
-      setOutput(result.output)
-      setCounterExample(result.counterExample || null)
+      const res = await calcCounterExampleMutation.mutateAsync({
+        problemId: parsedProblemId,
+        user_code: code,
+        user_code_language: selectedLanguage
+      })
       
+      setCounterExample(`반례 발견!\n\n입력: \n${res.counter_example_input}`)
     } catch (error) {
       console.error('코드 실행 실패:', error)
       setOutput("코드 실행 중 오류가 발생했습니다.")
     } finally {
       setIsRunning(false)
-    }
-  }
-
-  const handleSaveResult = async () => {
-    if (!executionResult) {
-      alert('먼저 코드를 실행해주세요.')
-      return
-    }
-
-    setIsSaving(true)
-    
-    try {
-      await saveToDatabase(executionResult)
-      alert('결과가 성공적으로 저장되었습니다!')
-    } catch (error) {
-      alert('저장에 실패했습니다. 로그인 상태를 확인해주세요.')
-    } finally {
-      setIsSaving(false)
     }
   }
 
@@ -168,84 +92,17 @@ function SearchResultPage() {
 
       <main className="flex-1 flex flex-col h-[calc(100vh-120px)]">
         <div className="flex-1 flex min-h-0">
-          <div className="w-1/2 border-r border-border p-6 overflow-y-auto">
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-2xl font-bold">문제 {problemId}: 숫자 반환하기</CardTitle>
-                  <Badge variant="secondary" className="bg-emerald-100 text-emerald-800">
-                    Level 1
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div>
-                  <h3 className="text-lg font-semibold mb-3">문제 설명</h3>
-                  <p className="text-muted-foreground leading-relaxed">
-                    정수 n이 주어졌을 때, n을 그대로 반환하는 함수를 작성하세요. 이는 기본적인 함수 작성 연습
-                    문제입니다. 이 문제는 프로그래밍의 기초를 다지는 데 도움이 됩니다. 함수의 기본 구조를 이해하고,
-                    매개변수를 받아서 그대로 반환하는 과정을 연습할 수 있습니다.
-                  </p>
-                </div>
-
-                <div>
-                  <h3 className="text-lg font-semibold mb-3">제한사항</h3>
-                  <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                    <li>n은 1 이상 1,000,000 이하의 정수입니다.</li>
-                    <li>함수명은 solution으로 고정입니다.</li>
-                    <li>시간 복잡도는 O(1)이어야 합니다.</li>
-                    <li>공간 복잡도는 O(1)이어야 합니다.</li>
-                  </ul>
-                </div>
-
-                <div>
-                  <h3 className="text-lg font-semibold mb-3">입출력 예</h3>
-                  <div className="bg-muted p-4 rounded-lg">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-border">
-                          <th className="text-left py-2">n</th>
-                          <th className="text-left py-2">result</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr>
-                          <td className="py-1">5</td>
-                          <td className="py-1">5</td>
-                        </tr>
-                        <tr>
-                          <td className="py-1">123</td>
-                          <td className="py-1">123</td>
-                        </tr>
-                        <tr>
-                          <td className="py-1">999999</td>
-                          <td className="py-1">999999</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="text-lg font-semibold mb-3">입출력 예 설명</h3>
-                  <p className="text-muted-foreground">
-                    입력받은 정수 n을 그대로 반환하면 됩니다. 이 문제는 함수의 기본 동작을 이해하는 데 중점을 둡니다.
-                    별도의 계산이나 변환 없이 입력값을 그대로 출력하는 것이 핵심입니다.
-                  </p>
-                </div>
-
-                <div>
-                  <h3 className="text-lg font-semibold mb-3">힌트</h3>
-                  <p className="text-muted-foreground">
-                    이 문제는 매우 간단합니다. 함수에서 매개변수로 받은 값을 return 문을 사용해 그대로 반환하면 됩니다.
-                    각 언어별로 함수 선언 방식이 다르니 선택한 언어의 문법을 확인해보세요.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+          <div className="w-[42%] border-r border-border p-5 overflow-y-auto bg-muted/20">
+            <ProblemViewer 
+              loading={isLoading}
+              problemId={problemId}
+              title={data?.title}
+              difficulty={data?.difficulty}
+              description={data?.description}
+            />
           </div>
 
-          <div className="w-1/2 flex flex-col min-h-0">
+          <div className="flex-1 flex flex-col min-h-0">
             <div className="p-4 border-b border-border">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
@@ -286,24 +143,6 @@ function SearchResultPage() {
                       <>
                         <Play className="h-4 w-4" />
                         실행
-                      </>
-                    )}
-                  </Button>
-                  <Button 
-                    onClick={handleSaveResult}
-                    disabled={!executionResult || isSaving}
-                    variant="outline"
-                    className="flex items-center gap-2"
-                  >
-                    {isSaving ? (
-                      <>
-                        <Spinner size="sm" />
-                        저장 중...
-                      </>
-                    ) : (
-                      <>
-                        <Save className="h-4 w-4" />
-                        저장
                       </>
                     )}
                   </Button>
@@ -374,7 +213,6 @@ function SearchResultPage() {
           </div>
         </div>
       </main>
-
       <Footer />
     </div>
   </Protected>

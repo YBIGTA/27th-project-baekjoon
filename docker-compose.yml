@@ -36,6 +36,9 @@ services:
       JWT_SECRET_KEY: "${JWT_SECRET_KEY}"
       JWT_ALGORITHM: "${JWT_ALGORITHM}"
       ACCESS_TOKEN_EXPIRE_MINUTES: "${ACCESS_TOKEN_EXPIRE_MINUTES}"
+      UPSTAGE_API_KEY: "${UPSTAGE_API_KEY}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY}"
+      CODE_RUNNER_URL: "http://code-runner:8000"
     ports:
       - "8000:8000"
     env_file:

@@ -2,6 +2,12 @@ from pydantic import BaseModel, Field
 from typing import List
 from enum import Enum
 
+
+class TestCase(BaseModel):
+    input: str = Field(..., description="입력값")
+    output: str = Field(..., description="출력값")
+
+
 class ProblemData(BaseModel):
     problem_id: int = Field(..., description="문제 번호")
     title: str = Field(..., description="문제 제목")
@@ -9,6 +15,7 @@ class ProblemData(BaseModel):
     constraints: str = Field(..., description="제한사항 HTML")
     input_description: str = Field(..., description="입력 설명 HTML")
     output_description: str = Field(..., description="출력 설명 HTML")
+    test_cases: List[TestCase] = Field(default_factory=list, description="테스트 케이스 목록")
 
 
 # Solved AC types

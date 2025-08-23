@@ -3,7 +3,7 @@ import asyncio
 from bs4 import BeautifulSoup, Tag
 from typing import Optional
 
-from .crawler_schema import ProblemData, ProblemTag, SolvedAcData, FullProblemInfo
+from .crawler_schema import ProblemData, ProblemTag, SolvedAcData, FullProblemInfo, TestCase
 
 
 class AcmicpcCrawler:
@@ -41,6 +41,13 @@ class AcmicpcCrawler:
         # '제한' 섹션은 ID가 없으므로 h2 태그로 검색
         limit_h2 = soup.find("h2", string="제한")
         constraints = str(limit_h2.find_next_sibling("div")) if limit_h2 and isinstance(limit_h2.find_next_sibling("div"), Tag) else ""
+        
+        # 예제 입출력 추출
+        example_input_elements = soup.select('[id^=sample-input]')
+        example_input = [tag.text for tag in example_input_elements]
+        example_output_elements = soup.select('[id^=sample-output]')
+        example_output = [tag.text for tag in example_output_elements]
+        example_test_cases = [TestCase(input=inpt, output=out) for inpt, out in zip(example_input, example_output)]
 
         return ProblemData(
             problem_id=problem_id,
@@ -49,6 +56,7 @@ class AcmicpcCrawler:
             constraints=constraints,
             input_description=input_desc,
             output_description=output_desc,
+            test_cases=example_test_cases
         )
     
     async def fetch_solved_ac_problem(self, problem_id: int) -> Optional[SolvedAcData]:

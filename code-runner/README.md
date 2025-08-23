@@ -8,13 +8,13 @@ Code Runner는 사용자로부터 제출된 코드를 안정적이고 확장 가
 
 이 서비스는 역할에 따라 세 개의 주요 컴포넌트로 구성됩니다.
 
-`[User] -> [code-runner-api] -> [redis] <- [code-runner-worker] -> [Docker Container]`
+`[User] -> [code-runner-api] -> [redis] <- [code-runner-worker] -> [EC2 Instance] -> [Docker Container]`
 
 1.  **API Server (`code-runner-api`)**: FastAPI로 구현된 API 서버입니다. 코드 실행 요청을 받아 즉시 처리하지 않고, 작업(Job)으로 만들어 Redis Queue에 넣은 후 작업 ID를 반환합니다. 매우 가볍고 빠르게 동작합니다.
 
 2.  **Message Queue (`redis`)**: Celery의 메시지 브로커 역할을 하는 인메모리 데이터 저장소입니다. API 서버가 전달한 작업들을 대기열(Queue)에 저장하고, Worker가 가져갈 수 있도록 전달합니다.
 
-3.  **Worker (`code-runner-worker`)**: Celery로 구현된 작업자입니다. Redis Queue를 지속적으로 감시하며, 새로운 작업이 들어오면 가져와서 실제로 Docker 컨테이너를 생성하여 코드를 실행합니다. 실제 연산과 리소스 사용은 이 컴포넌트에서 발생합니다.
+3.  **Worker (`code-runner-worker`)**: Celery로 구현된 작업자입니다. Redis Queue를 지속적으로 감시하며, 새로운 작업이 들어오면 가져와서 원격 EC2 인스턴스에서 코드를 실행합니다. 실제 연산과 리소스 사용은 이 컴포넌트에서 발생합니다.
 
 ## 서비스 구성
 
@@ -82,54 +82,33 @@ Code Runner는 사용자로부터 제출된 코드를 안정적이고 확장 가
         }
         ```
 
-## 보안 강화: Kata Container 설정
+## 환경 변수
 
-실제 코드 실행을 담당하는 `code-runner-worker` 서비스는 컨테이너 탈출(escape) 공격까지 방어하는 최상위 보안을 적용하기 위해 Kata Container 위에서 실행되도록 설정되어 있습니다. 이는 Worker 서비스 전체를 경량 가상 머신(VM) 안에 배치하여 하드웨어 수준의 격리를 제공합니다.
+`.env.example` 파일을 복사하여 `.env` 파일을 생성하고, 다음 환경 변수를 설정해야 합니다.
 
-### 호스트 설정 (Amazon Linux 2023 on EC2 기준)
+- `AWS_REGION`: AWS 리전 (예: `ap-northeast-2`)
+- `EC2_AMI_ID`: 코드 실행에 사용할 EC2 AMI ID
+- `EC2_INSTANCE_TYPE`: EC2 인스턴스 유형 (예: `t2.micro`)
+- `EC2_SECURITY_GROUP_ID`: EC2 인스턴스에 적용할 보안 그룹 ID
+- `EC2_IAM_INSTANCE_PROFILE_ARN`: EC2 인스턴스에 적용할 IAM 인스턴스 프로파일 ARN
+- `REDIS_URL`: Redis 서버 URL (예: `redis://redis:6379/0`)
+- `REMOTE_EXECUTOR_PATH`: 원격 EC2 인스턴스에 있는 `remote_executor.py` 스크립트의 경로
+- `IDLE_INSTANCE_WAIT_TIMEOUT`: 유휴 인스턴스를 기다리는 최대 시간 (초, 기본값: 120)
+- `IDLE_INSTANCE_POLL_INTERVAL`: 유휴 인스턴스를 폴링하는 간격 (초, 기본값: 5)
 
-1.  **EC2 인스턴스 선택**:
-    -   **AMI**: `Amazon Linux 2023`
-    -   **인스턴스 유형**: 중첩 가상화(Nested Virtualization)를 지원하는 인스턴스 (예: `.metal` 유형 또는 `m6i.4xlarge`와 같은 최신 세대 non-metal 인스턴스)
+## 보안
 
-2.  **Docker 및 Kata Container 설치**:
-    EC2 인스턴스에 SSH로 접속하여 다음 명령어를 실행합니다.
-    ```bash
-    # 시스템 및 Docker 설치
-    sudo dnf update -y
-    sudo dnf install docker -y
-    sudo systemctl start docker
-    sudo systemctl enable docker
-    sudo usermod -aG docker ec2-user
-    # (로그아웃 후 다시 접속)
+- **셸 주입 취약점**: `remote_executor.py`의 초기 버전에는 셸 주입 취약점이 있었으나, 코드를 환경 변수로 전달하고 `echo` 사용을 제거하여 패치되었습니다.
+- **컨테이너 격리**: 사용자의 코드는 네트워크가 비활성화되고 리소스가 제한된 Docker 컨테이너 내에서 실행됩니다.
+- **Kata Containers**: `code-runner-worker` 서비스는 추가적인 보안을 위해 Kata Containers 런타임을 사용하도록 구성할 수 있습니다. 이를 통해 컨테이너 탈출 공격을 방지하기 위한 하드웨어 수준의 격리를 제공합니다.
 
-    # Kata Containers 리포지토리 추가 및 설치
-    ARCH=$(uname -m)
-    sudo dnf config-manager --add-repo "https://download.opensuse.org/repositories/home:/katacontainers:/releases:/${ARCH}:/stable/home:katacontainers:releases:${ARCH}:stable.repo"
-    sudo dnf install kata-containers -y
-    ```
-
-3.  **Docker 데몬 설정**:
-    Docker가 Kata를 런타임으로 인식하도록 `/etc/docker/daemon.json` 파일을 생성합니다.
-    ```bash
-    sudo tee /etc/docker/daemon.json > /dev/null <<EOF
-    {
-      "runtimes": {
-        "kata": {
-          "path": "/usr/bin/kata-runtime"
-        }
-      }
-    }
-    EOF
-
-    sudo systemctl restart docker
-    ```
 
 ## 배포
 
 1.  **인스턴스 준비**: `docker-compose.yml`에 설정된 리소스(`cpus: '16'`, `memory: 7G`)를 감당할 수 있는 고사양 인스턴스를 준비합니다.
-2.  **Kata Container 설정**: 호스트에 Docker와 Kata Container를 설치하고 Docker 데몬을 설정합니다.
-3.  **서비스 실행**: 프로젝트 최상위 디렉토리에서 아래 명령어를 실행합니다.
+2.  **Kata Container 설정 (선택 사항)**: 추가적인 보안이 필요한 경우, 호스트에 Docker와 Kata Container를 설치하고 Docker 데몬을 설정합니다.
+3.  **환경 변수 설정**: 프로젝트 루트에 `.env` 파일을 생성하고 필요한 환경 변수를 설정합니다.
+4.  **서비스 실행**: 프로젝트 최상위 디렉토리에서 아래 명령어를 실행합니다.
     ```bash
     docker-compose up -d --build
     ```

@@ -1,7 +1,9 @@
-from typing import Dict, Any, Literal, Optional, Union
+import json
+from typing import Dict, Any, Literal, Optional, Union, AsyncGenerator, cast
 from pydantic import BaseModel
 from app.counterexample.graph import build_counterexample_graph, build_counterexample_graph_from_compare
 from app.counterexample.state import CounterexampleState
+from langchain_core.messages import BaseMessage
 
 
 class CounterexampleSuccess(BaseModel):
@@ -101,6 +103,66 @@ class CounterexampleRunner:
             initial_state["test_case_generator"] = input_generator
         
         return await self._execute_workflow(initial_state, start_from_compare)
+
+    async def stream_find_counterexample(
+        self,
+        problem_description: str,
+        user_code: str,
+        language: str = "python",
+        difficulty: int = 0,
+        correct_solution: Optional[str] = None,
+        input_generator: Optional[str] = None,
+        start_from_compare: bool = False,
+    ) -> AsyncGenerator[Dict[str, Any], None]:
+        """LangGraph 그래프 astream 사용하여 노드 진행 상황/상태 업데이트 스트리밍.
+
+        LangGraph의 astream 이벤트 포맷에 의존하므로, 가능한 한 일반적으로 매핑.
+        토큰 단위 LLM 출력은 (현재 노드 함수가 토큰 스트리밍 노출 안 하므로) 제외.
+        필요 시 향후 노드 내부를 스트리밍 지원 형태로 확장 가능.
+        """
+        initial_state: CounterexampleState = {
+            "problem_description": problem_description,
+            "user_code": user_code,
+            "language": language,
+            "difficulty": difficulty,
+            "counterexample_found": False,
+        }
+        if correct_solution is not None:
+            initial_state["correct_solution"] = correct_solution
+        if input_generator is not None:
+            initial_state["test_case_generator"] = input_generator
+
+        graph = self._get_graph(start_from_compare)
+        last_state: Dict[str, Any] = dict(initial_state)
+
+        try:
+            async for event in graph.astream(initial_state, stream_mode="updates"):
+                # 현재 LangGraph updates 모드: { node_name: partial_state, ... }
+                if isinstance(event, dict):
+                    for node_name, partial in event.items():
+                        if isinstance(partial, dict):
+                            last_state.update(partial)
+                            yield {"type": "node_update", "node": node_name, "data": partial}
+                        elif isinstance(partial, BaseMessage):
+                            yield {"type": "message", "node": node_name, "role": partial.type, "content": partial.content}
+                        else:
+                            yield {"type": "node_update", "node": node_name, "data": {"value": partial}}
+                elif isinstance(event, BaseMessage):
+                    yield {"type": "message", "role": event.type, "content": event.content}
+                else:
+                    yield {"type": "event", "raw": str(event)}
+        except Exception as e:
+            yield {"type": "error", "message": str(e)}
+
+        # 최종 결과 구성 (그래프 완료 후 last_state 기반)
+        yield {
+            "type": "finish",
+            "counterexample_found": last_state.get("counterexample_found"),
+            "counterexample_input": last_state.get("counterexample_input"),
+            "counterexample_detail": last_state.get("counterexample_detail"),
+            "correct_solution": last_state.get("correct_solution"),
+            "input_generator": last_state.get("test_case_generator"),
+        }
 
 # 글로벌 인스턴스
 runner = CounterexampleRunner()

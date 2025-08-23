@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { ChevronDown, ChevronUp, Play, RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -11,8 +11,10 @@ import { Protected } from '@/components/Protected'
 import Editor from '@monaco-editor/react'
 import StyledMarkdown from '@/components/molecules/StyledMarkdown' // kept for now (execution output area)
 import { ProblemViewer } from '@/components/organisms/problem-viewer'
-import { tokenStorage } from "@/api/auth"
-import { useProblemMetadataQuery, useCalcCounterExampleMutation } from "@/api/problem"
+import { useProblemMetadataQuery } from "@/api/problem"
+import { tokenStorage, BASE_URL } from '@/api/auth'
+import { CounterexampleEvent } from '@/api/websocket'
+import useWebSocket, { ReadyState } from 'react-use-websocket'
 
 
 export const Route = createFileRoute('/problem/$problemId')({
@@ -42,7 +44,6 @@ function SearchResultPage() {
     throw redirect({ to: '/' })
   }
   const { data, isLoading } = useProblemMetadataQuery(parsedProblemId)
-  const calcCounterExampleMutation = useCalcCounterExampleMutation()
 
   const [code, setCode] = useState(`// 여기에 코드를 작성하세요`)
   const [isTerminalOpen, setIsTerminalOpen] = useState(false)
@@ -50,35 +51,76 @@ function SearchResultPage() {
   const [selectedLanguage, setSelectedLanguage] = useState("javascript")
 
   const [isRunning, setIsRunning] = useState(false)
+  const [shouldConnect, setShouldConnect] = useState(false)
+  const [runSeq, setRunSeq] = useState(0)
+  const [currentNode, setCurrentNode] = useState<string | null>(null)
   const [counterExample, setCounterExample] = useState<string | null>(null)
   const [executionResult, setExecutionResult] = useState<CodeExecutionResult | null>(null)
 
 
-  const handleRunCode = async () => {
-    setIsRunning(true)
-    setIsTerminalOpen(true)
-    
-    try {
-      const res = await calcCounterExampleMutation.mutateAsync({
-        problemId: parsedProblemId,
+  const wsUrl = `${BASE_URL.replace(/^http/, 'ws')}/ws/counterexample?run=${runSeq}`
+
+  const { sendJsonMessage, readyState, getWebSocket } = useWebSocket(wsUrl, {
+    share: false,
+    shouldReconnect: () => false,
+    onOpen: () => {
+      sendJsonMessage({
+        problem_id: parsedProblemId,
         user_code: code,
-        user_code_language: selectedLanguage
+        language: selectedLanguage,
       })
-      
-      setCounterExample(`반례 발견!\n\n입력: \n${res.counter_example_input}`)
-    } catch (error) {
-      console.error('코드 실행 실패:', error)
-      setOutput("코드 실행 중 오류가 발생했습니다.")
-    } finally {
+    },
+    onMessage: (e: MessageEvent) => {
+      try {
+        const ev = JSON.parse(e.data) as CounterexampleEvent
+        if (ev.type === 'node_update') {
+          setCurrentNode(ev.node)
+          setOutput(prev => prev + `\n[노드] ${ev.node}`)
+        } else if (ev.type === 'token') {
+          setOutput(prev => prev + ev.content)
+        } else if (ev.type === 'message') {
+          setOutput(prev => prev + `\n[메시지] ${ev.content}`)
+        } else if (ev.type === 'error') {
+          setOutput(prev => prev + `\n[에러] ${ev.message}`)
+          setIsRunning(false)
+          setShouldConnect(false)
+        } else if (ev.type === 'finish') {
+          if (ev.counterexample_found && ev.counterexample_input) {
+            setCounterExample(`반례 발견!\n\n입력:\n${ev.counterexample_input}`)
+          } else {
+            setCounterExample('반례를 찾지 못했습니다.')
+          }
+          setIsRunning(false)
+          setShouldConnect(false)
+        }
+      } catch (err) {
+        setOutput(prev => prev + `\n[파싱오류] ${(err as Error).message}`)
+      }
+    },
+    onClose: () => {
       setIsRunning(false)
     }
-  }
+  }, shouldConnect)
+
+  const handleRunCode = useCallback(() => {
+    setOutput('')
+    setCounterExample(null)
+    setCurrentNode(null)
+    setIsTerminalOpen(true)
+    setIsRunning(true)
+    setRunSeq(s => s + 1)
+    setShouldConnect(true)
+  }, [])
 
   const handleReset = () => {
+      try { getWebSocket()?.close() } catch (err) { console.error("WebSocket close error:", err) }
+      setShouldConnect(false)
+    }
     setCode("// 여기에 코드를 작성하세요")
     setOutput("")
     setExecutionResult(null)
     setCounterExample(null)
+    setCurrentNode(null)
   }
 
   const handleLanguageChange = (language: string) => {
@@ -188,6 +230,8 @@ function SearchResultPage() {
                 <div className="h-48 p-4 bg-card border-t border-border overflow-y-auto flex-1">
                   <pre className="text-sm font-mono text-muted-foreground whitespace-pre-wrap">
                     {output || "실행 버튼을 클릭하여 코드를 실행하세요."}
+                    {currentNode && `\n현재 노드: ${currentNode}`}
+                    {isRunning && `\n상태: ${ReadyState[readyState]}`}
                   </pre>
                   {executionResult && (
                     <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">

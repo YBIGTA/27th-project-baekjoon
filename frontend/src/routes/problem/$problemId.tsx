@@ -55,7 +55,6 @@ function SearchResultPage() {
   const [counterExample, setCounterExample] = useState<string | null>(null)
   const [executionResult, setExecutionResult] = useState<CodeExecutionResult | null>(null)
 
-  console.log(data?.description)
 
   const handleRunCode = async () => {
     setIsRunning(true)

@@ -44,14 +44,6 @@ services:
     env_file:
       - ./backend/.env
 
-  ai-server:
-    build:
-      context: ./ai-server
-      dockerfile: Dockerfile
-    container_name: ai-server
-    ports:
-      - "8080:8080"
-
   frontend:
     build:
       context: ./frontend
@@ -63,7 +55,6 @@ services:
       - "3000:80"
     depends_on:
       - backend
-      - ai-server
       - code-runner-api
 
   redis:

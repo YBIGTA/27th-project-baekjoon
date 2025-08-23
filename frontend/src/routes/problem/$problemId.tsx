@@ -113,9 +113,12 @@ function SearchResultPage() {
   }, [])
 
   const handleReset = () => {
-      try { getWebSocket()?.close() } catch (err) { console.error("WebSocket close error:", err) }
-      setShouldConnect(false)
+    try {
+      getWebSocket()?.close()
+    } catch (err) {
+      console.error("WebSocket close error:", err)
     }
+    setShouldConnect(false)
     setCode("// 여기에 코드를 작성하세요")
     setOutput("")
     setExecutionResult(null)

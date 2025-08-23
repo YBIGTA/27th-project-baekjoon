@@ -44,7 +44,6 @@ function SearchResultPage() {
     throw redirect({ to: '/' })
   }
   const { data, isLoading } = useProblemMetadataQuery(parsedProblemId)
-  // const calcCounterExampleMutation = useCalcCounterExampleMutation() // REST 버전 (보류)
 
   const [code, setCode] = useState(`// 여기에 코드를 작성하세요`)
   const [isTerminalOpen, setIsTerminalOpen] = useState(false)

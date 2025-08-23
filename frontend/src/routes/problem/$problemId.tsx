@@ -4,7 +4,6 @@ import { ChevronDown, ChevronUp, Play, RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Skeleton } from "@/components/ui/skeleton" // still used inside ProblemViewer maybe future
 import { Spinner } from "@/components/ui/spinner"
 import Header from "@/components/organisms/header"
 import Footer from "@/components/organisms/footer"

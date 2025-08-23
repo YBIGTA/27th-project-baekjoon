@@ -42,7 +42,7 @@ class AcmicpcCrawler:
         limit_h2 = soup.find("h2", string="제한")
         constraints = str(limit_h2.find_next_sibling("div")) if limit_h2 and isinstance(limit_h2.find_next_sibling("div"), Tag) else ""
         
-        # 에제 입출력 추출
+        # 예제 입출력 추출
         example_input_elements = soup.select('[id^=sample-input]')
         example_input = [tag.text for tag in example_input_elements]
         example_output_elements = soup.select('[id^=sample-output]')

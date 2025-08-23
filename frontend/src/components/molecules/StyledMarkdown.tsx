@@ -25,7 +25,6 @@ export const StyledMarkdown: React.FC<StyledMarkdownProps> = ({ content, childre
           ol: ({ node, ...props }) => <ol className="list-decimal ml-6 mb-4 space-y-1" {...props} />,
           li: ({ node, ...props }) => <li className="marker:text-muted-foreground" {...props} />,
           code: ({ node, className, children, ...props }) => {
-            console.log(node, className, children, props)
             return (
               <code className={"block w-full p-3 rounded bg-muted font-mono text-sm overflow-x-auto mb-4" + (className ? ` ${className}` : '')} {...props}>
                 {children}

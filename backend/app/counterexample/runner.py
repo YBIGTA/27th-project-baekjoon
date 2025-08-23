@@ -144,11 +144,11 @@ class CounterexampleRunner:
                             last_state.update(partial)
                             yield {"type": "node_update", "node": node_name, "data": partial}
                         elif isinstance(partial, BaseMessage):
-                            yield {"type": "message", "node": node_name, "role": getattr(partial, "type", "unknown"), "content": getattr(partial, "content", None)}
+                            yield {"type": "message", "node": node_name, "role": partial.type, "content": partial.content}
                         else:
                             yield {"type": "node_update", "node": node_name, "data": {"value": partial}}
                 elif isinstance(event, BaseMessage):
-                    yield {"type": "message", "role": getattr(event, "type", "unknown"), "content": getattr(event, "content", None)}
+                    yield {"type": "message", "role": event.type, "content": event.content}
                 else:
                     yield {"type": "event", "raw": str(event)}
         except Exception as e:

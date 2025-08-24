@@ -7,3 +7,9 @@ export type CounterexampleEvent =
 	| { type: 'finish'; counterexample_found: boolean; counterexample_input?: string; counterexample_detail?: any; correct_solution?: string; input_generator?: string }
 	| { type: 'error'; message: string; trace?: string };
 
+export enum NodeType {
+  Solve = 'solve',
+  BojSubmit = 'boj_submit',
+  GenerateInputs = 'generate_inputs',
+  RunAndCompare = 'run_and_compare',
+}

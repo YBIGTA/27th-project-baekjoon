@@ -1,4 +1,5 @@
 import docker
+from docker.errors import ContainerError
 from celery import Celery
 
 # Celery 애플리케이션을 생성합니다.
@@ -15,11 +16,11 @@ client = docker.from_env()
 SUPPORTED_LANGUAGES = {
     "python": {
         "image": "python:3.12-slim",
-        "command": ["python3", "-c"],
+        "command": ["/bin/sh", "-c"],
     },
     "javascript": {
         "image": "node:18-slim",
-        "command": ["node", "-e"],
+        "command": ["/bin/sh", "-c"],
     },
     "c": {
         "image": "gcc:12.3",
@@ -37,7 +38,7 @@ SUPPORTED_LANGUAGES = {
 
 
 @celery_app.task
-def run_code_task(language: str, code: str):
+def run_code_task(language: str, code: str, input_val: str):
     """Celery 작업으로, 주어진 코드를 Docker 컨테이너에서 실행합니다."""
     if language not in SUPPORTED_LANGUAGES:
         return {"error": f"Unsupported language: {language}"}
@@ -47,13 +48,44 @@ def run_code_task(language: str, code: str):
     command = lang_config["command"].copy()
 
     if language == "c":
-        command.append(f"echo '{code}' > a.c && gcc a.c -o a.out && ./a.out")
+        command.append(
+            (
+                "cat <<'EOF' > a.c\n" f"{code}\nEOF\n"
+                "cat <<'IN' | gcc a.c -o a.out >/dev/null 2>&1 && ./a.out\n" f"{input_val}\nIN\n"
+            )
+        )
     elif language == "cpp":
-        command.append(f"echo '{code}' > a.cpp && g++ a.cpp -o a.out && ./a.out")
+        command.append(
+            (
+                "cat <<'EOF' > a.cpp\n" f"{code}\nEOF\n"
+                "cat <<'IN' | g++ a.cpp -o a.out >/dev/null 2>&1 && ./a.out\n" f"{input_val}\nIN\n"
+            )
+        )
     elif language == "java":
-        command.append(f"echo '{code}' > Main.java && javac Main.java && java Main")
+        command.append(
+            (
+                "cat <<'EOF' > Main.java\n" f"{code}\nEOF\n"
+                "javac Main.java >/dev/null 2>&1 || exit 1\n"
+                "cat <<'IN' | java Main\n" f"{input_val}\nIN\n"
+            )
+        )
+    elif language == "python":
+        command.append(
+            (
+                "cat <<'EOF' > main.py\n" f"{code}\nEOF\n"  # write code
+                "cat <<'EOI' | python3 main.py\n" f"{input_val}\nEOI\n"  # run with stdin
+            ),
+        )
+    elif language == "javascript":
+        command.append(
+            (
+                "cat <<'EOF' > main.js\n" f"{code}\nEOF\n"
+                "cat <<'EOI' | node main.js\n" f"{input_val}\nEOI\n"
+            )
+        )
     else:
-        command.append(code)
+        # Fallback: just run the interpreter with -c style if somehow hit (defensive)
+        command.extend([code])
 
     try:
         container = client.containers.run(
@@ -70,7 +102,7 @@ def run_code_task(language: str, code: str):
             tty=False,
         )
         return {"output": container.decode("utf-8")}
-    except docker.errors.ContainerError as e:
-        return {"error": e.stderr.decode("utf-8")}
+    except ContainerError as e:
+        return {"error": e.stderr}
     except Exception as e:
         return {"error": str(e)}

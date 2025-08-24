@@ -14,7 +14,7 @@ def health_check():
 @app.post("/run-code", response_model=TaskResponse)
 async def submit_code(req: CodeRequest):
     """코드를 실행 요청을 받아 Celery 작업 큐에 넣고 작업 ID를 반환합니다."""
-    task = run_code_task.delay(req.language, req.code)
+    task = run_code_task.delay(req.language, req.code, req.input_value)
     return {"task_id": task.id}
 
 

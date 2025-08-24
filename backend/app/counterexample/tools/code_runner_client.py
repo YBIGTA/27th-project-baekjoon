@@ -26,19 +26,7 @@ class CodeRunnerClient:
         if self.session:
             await self.session.close()
 
-    async def run_code_with_input(self, code: str, input_data: str, language: str = "python") -> Dict[str, Any]:
-        """
-        임시 사용 용도로 만듦
-        """
-        input_data_repr = repr(input_data)
-        input_simulate_code = (
-            f"import sys\n"
-            f"from io import StringIO\n"
-            f"sys.stdin = StringIO({input_data_repr})\n\n"
-        )
-        return await self.run_code(input_simulate_code + code, language)
-
-    async def run_code(self, code: str, language: str = "python") -> Dict[str, Any]:
+    async def run_code(self, code: str, input_data: str, language: str = "python") -> Dict[str, Any]:
         """
         코드 실행 요청
         
@@ -54,7 +42,8 @@ class CodeRunnerClient:
         
         payload = {
             "code": code,
-            "language": language
+            "language": language,
+            "input_value": input_data
         }
         
         try:

@@ -27,19 +27,18 @@ async def run_codes_and_compare(state: CounterexampleState) -> CounterexampleSta
             input_gen_result = await code_runner.run_code(test_case_generator, language)
             if input_gen_result["error"]:
                 logging.error(f"Input generation failed: {input_gen_result['error']}")
-                # TODO: 인풋 생성시 실패는 인풋 생성기가 잘못된것...
-                continue
+                return {**state, "counterexample_found": False}
             test_input = input_gen_result.get("output", "")
             logging.info(f"Test input: {test_input}")
 
             try:
                 # 사용자 코드 실행
-                user_result = await code_runner.run_code_with_input(user_code, test_input, language)
+                user_result = await code_runner.run_code(user_code, test_input, language)
                 user_output = user_result.get("output", "").strip()
                 user_outputs.append(user_output)
                 
                 # 올바른 해결책 실행
-                correct_result = await code_runner.run_code_with_input(correct_solution, test_input, language)
+                correct_result = await code_runner.run_code(correct_solution, test_input, language)
                 correct_output = correct_result.get("output", "").strip()
                 correct_outputs.append(correct_output)
                 
@@ -81,7 +80,7 @@ async def execute_single_code(code: str, test_input: str, language: str) -> Dict
     """단일 코드 실행"""
     async with CodeRunnerClient() as code_runner:
         try:
-            result = await code_runner.run_code_with_input(code, test_input, language)
+            result = await code_runner.run_code(code, test_input, language)
             return {
                 "success": True,
                 "output": result.get("output", ""),

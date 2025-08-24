@@ -3,6 +3,7 @@ from pydantic import BaseModel
 
 class CodeRequest(BaseModel):
     language: str
+    input_value: str
     code: str
 
 

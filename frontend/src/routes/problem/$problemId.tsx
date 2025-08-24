@@ -79,12 +79,12 @@ function SearchResultPage() {
 
   return (
   <Protected>
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col h-screen">
       <Header showAuthButtons={false} maxWidth={false} />
 
-      <main className="flex-1 flex flex-col h-[calc(100vh-120px)]">
+      <main className="flex-1 flex flex-col h-[calc(100vh-65px)]">
         <div className="flex-1 flex min-h-0">
-          <div className="w-[42%] border-r border-border p-5 overflow-y-auto bg-muted/20">
+          <div className="w-[42%] border-r border-border p-5 overflow-y-scroll bg-muted/20">
             <ProblemViewer 
               loading={isLoading}
               problemId={problemId}
@@ -197,7 +197,6 @@ function SearchResultPage() {
           </div>
         </div>
       </main>
-      <Footer />
     </div>
   </Protected>
   )

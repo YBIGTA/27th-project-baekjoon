@@ -1,19 +1,32 @@
+import aiohttp
+import asyncio
 import requests
 import json
 from typing import Dict, Any, List
 from app.config import CODE_RUNNER_URL
+
+PENDING = "PENDING"
+
 
 class CodeRunnerClient:
     """코드 실행 서비스와 통신하는 클라이언트"""
     
     def __init__(self, base_url: str = CODE_RUNNER_URL):
         self.base_url = base_url
-        self.session = requests.Session()
-        self.session.headers.update({
+        self.session = None
+        self.headers = {
             "Content-Type": "application/json"
-        })
+        }
+    
+    async def __aenter__(self):
+        self.session = aiohttp.ClientSession(headers=self.headers)
+        return self
+        
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        if self.session:
+            await self.session.close()
 
-    def run_code_with_input(self, code: str, input_data: str, language: str = "python") -> Dict[str, Any]:
+    async def run_code_with_input(self, code: str, input_data: str, language: str = "python") -> Dict[str, Any]:
         """
         임시 사용 용도로 만듦
         """
@@ -23,9 +36,9 @@ class CodeRunnerClient:
             f"from io import StringIO\n"
             f"sys.stdin = StringIO({input_data_repr})\n\n"
         )
-        return self.run_code(input_simulate_code + code, language)
+        return await self.run_code(input_simulate_code + code, language)
 
-    def run_code(self, code: str, language: str = "python") -> Dict[str, Any]:
+    async def run_code(self, code: str, language: str = "python") -> Dict[str, Any]:
         """
         코드 실행 요청
         
@@ -45,14 +58,36 @@ class CodeRunnerClient:
         }
         
         try:
-            response = self.session.post(endpoint, json=payload, timeout=30)
+            if not self.session:
+                raise RuntimeError("세션이 초기화되지 않았습니다. 'async with' 문을 사용하여 세션을 관리하세요.")
+
+            response = await self.session.post(endpoint, json=payload, timeout=aiohttp.ClientTimeout(total=30))
             response.raise_for_status()
-            
-            result = response.json()
+
+            result = await response.json()
+            task_id: str | None = result.get("task_id")
+
+            if not task_id:
+                raise ValueError("작업 ID가 없습니다.")
+
+            task_status = PENDING
+            while task_status == PENDING:
+                task_response = await self.session.get(f"{self.base_url}/results/{task_id}", timeout=aiohttp.ClientTimeout(total=30))
+                task_response.raise_for_status()
+                task_result = await task_response.json()
+                task_status = task_result.get("status", PENDING)
+                if task_status == PENDING:
+                    await asyncio.sleep(1)
+
+            task_result: dict[str, Any] = task_result.get("result", {})  # type: ignore
+            task_output = task_result.get("output", "")
+            task_error = task_result.get("error", "")
+            task_status = task_result.get("status", "unknown")
+
             return {
-                "output": result.get("output", ""),
-                "error": result.get("error", ""),
-                "status": result.get("status", "unknown"),
+                "output": task_output,
+                "error": task_error,
+                "status": task_status,
                 "execution_time": result.get("execution_time", 0)
             }
             
@@ -78,20 +113,24 @@ class CodeRunnerClient:
                 "execution_time": 0
             }
     
-    def health_check(self) -> bool:
+    async def health_check(self) -> bool:
         """코드 실행 서비스 상태 확인"""
+        if not self.session:
+            raise RuntimeError("세션이 초기화되지 않았습니다. 'async with' 문을 사용하여 세션을 관리하세요.")
         try:
-            response = self.session.get(f"{self.base_url}/health", timeout=5)
-            return response.status_code == 200
+            response = await self.session.get(f"{self.base_url}/health", timeout=aiohttp.ClientTimeout(5))
+            return response.status == 200
         except:
             return False
-    
-    def get_supported_languages(self) -> List[str]:
+
+    async def get_supported_languages(self) -> List[str]:
         """지원하는 프로그래밍 언어 목록 조회"""
+        if not self.session:
+            raise RuntimeError("세션이 초기화되지 않았습니다. 'async with' 문을 사용하여 세션을 관리하세요.")
         try:
-            response = self.session.get(f"{self.base_url}/languages", timeout=5)
-            if response.status_code == 200:
-                return response.json().get("languages", ["python"])
+            response = await self.session.get(f"{self.base_url}/languages", timeout=aiohttp.ClientTimeout(5))
+            if response.status == 200:
+                return (await response.json()).get("languages", ["python"])
         except:
             pass
         return ["python"]  # 기본값

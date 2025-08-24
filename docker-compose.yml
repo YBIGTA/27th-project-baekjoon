@@ -38,7 +38,7 @@ services:
       ACCESS_TOKEN_EXPIRE_MINUTES: "${ACCESS_TOKEN_EXPIRE_MINUTES}"
       UPSTAGE_API_KEY: "${UPSTAGE_API_KEY}"
       OPENAI_API_KEY: "${OPENAI_API_KEY}"
-      CODE_RUNNER_URL: "http://code-runner:8000"
+      CODE_RUNNER_URL: "http://code-runner-api:8000"
       BOJ_RUNNER_URL: "http://boj-runner:8000"
     ports:
       - "8000:8000"
@@ -56,7 +56,7 @@ services:
       - "3000:80"
     depends_on:
       - backend
-      - code-runner
+      - code-runner-api
 
   redis:
     image: redis:7-alpine
@@ -65,19 +65,38 @@ services:
       - "6379:6379"
     restart: unless-stopped
 
-  code-runner:
-    build: ./temp-code-runner
-    container_name: code-runner
+  code-runner-api:
+    build: ./code-runner
+    container_name: code-runner-api
+    command: uvicorn app.api:app --host 0.0.0.0 --port 8000
     ports:
       - "8001:8000"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - redis
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+
+  code-runner-worker:
+    build: ./code-runner
+    container_name: code-runner-worker
+    command: celery -A app.worker worker --loglevel=info --concurrency=50
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    deploy:
+      resources:
+        limits:
+          cpus: '16'
+          memory: 7G
+    depends_on:
+      - redis
+    restart: unless-stopped
+
   turnstile-solver:
     image: sungu122/turnstile-solver:latest
     container_name: turnstile-solver
@@ -87,6 +106,11 @@ services:
     ports:
       - "5000:5000"
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
   
   boj-runner:
     build: ./boj-runner
@@ -98,6 +122,8 @@ services:
     ports:
       - "8002:8000"
     restart: unless-stopped
+    depends_on:
+      - turnstile-solver
 
 volumes:
   mysql_data:

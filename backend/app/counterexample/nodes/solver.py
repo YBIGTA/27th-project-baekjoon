@@ -10,13 +10,14 @@ async def generate_solution(state: CounterexampleState) -> CounterexampleState:
     problem = state.get("problem_description", "")
     language = state.get("language", "python")
     difficulty = state.get("difficulty", 0)
+    try_count = state.get("solution_generate_try", 0)
 
     if not problem:
         return {**state, "correct_solution": ""}
     
     # LLM을 사용해서 올바른 해결책 생성 시도
     try:
-        chat = get_counterexample_chat(difficulty)
+        chat = get_counterexample_chat(difficulty + 2 * try_count)
         chain = SOLVE_PROMPT | chat | StrOutputParser()
         response = await chain.ainvoke({
             "problem_description": problem,

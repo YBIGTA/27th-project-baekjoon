@@ -2,9 +2,46 @@ import { useCallback, useRef, useState } from 'react'
 import useWebSocket, { ReadyState } from 'react-use-websocket'
 import { CounterexampleEvent } from '@/api/websocket'
 import { BASE_URL } from '@/api/auth'
+import { NodeType } from '@/api/websocket'
+
+export interface HistoryItemBase {
+  id: string
+  t: number // timestamp
+  type: 'node' | 'token_stream' | 'message' | 'error' | 'finish'
+}
+
+export interface NodeHistoryItem extends HistoryItemBase {
+  type: 'node'
+  node: string
+  data?: any
+}
+
+export interface TokenStreamHistoryItem extends HistoryItemBase {
+  type: 'token_stream'
+  node?: string
+  content: string
+}
+
+export interface MessageHistoryItem extends HistoryItemBase {
+  type: 'message'
+  content: string
+}
+
+export interface ErrorHistoryItem extends HistoryItemBase {
+  type: 'error'
+  message: string
+}
+
+export interface FinishHistoryItem extends HistoryItemBase {
+  type: 'finish'
+  counterexample_found: boolean
+  counterexample_input?: string
+}
+
+export type HistoryItem = NodeHistoryItem | TokenStreamHistoryItem | MessageHistoryItem | ErrorHistoryItem | FinishHistoryItem
 
 interface UseCounterexampleReturn {
-  output: string
+  history: HistoryItem[]
   currentNode: string | null
   counterExample: string | null
   isRunning: boolean
@@ -15,8 +52,33 @@ interface UseCounterexampleReturn {
   runSeq: number
 }
 
+function get_current_node(e: CounterexampleEvent): string | null {
+  if (e.type === 'finish' || e.type === 'error')
+    return null
+  if (e.type === 'node_update')
+    switch (e.node) {
+      case NodeType.Solve:
+        return NodeType.BojSubmit
+      case NodeType.BojSubmit:
+        if (e.data.is_solution_validated)
+          return NodeType.GenerateInputs
+        else
+          return NodeType.Solve
+      case NodeType.GenerateInputs:
+        return NodeType.RunAndCompare
+      case NodeType.RunAndCompare:
+        if (e.data.counterexample_found)
+          return null
+        else
+          return NodeType.GenerateInputs
+      default:
+        return null
+    }
+  return null
+}
+
 export function useCounterexample(): UseCounterexampleReturn {
-  const [output, setOutput] = useState('')
+  const [history, setHistory] = useState<HistoryItem[]>([])
   const [currentNode, setCurrentNode] = useState<string | null>(null)
   const [counterExample, setCounterExample] = useState<string | null>(null)
   const [isRunning, setIsRunning] = useState(false)
@@ -40,38 +102,75 @@ export function useCounterexample(): UseCounterexampleReturn {
             language: payload.language,
         })
       }
+      setCurrentNode('solve')
     },
     onMessage: (e: MessageEvent) => {
       try {
         const ev = JSON.parse(e.data) as CounterexampleEvent
+        console.debug(ev)
+        const now = Date.now()
         switch (ev.type) {
-          case 'node_update':
-            setCurrentNode(ev.node)
-            setOutput(prev => prev + `\n[노드] ${ev.node}`)
+          case 'node_update': {
+            setCurrentNode(get_current_node(ev))
+            setHistory(prev => [
+              ...prev,
+              { id: crypto.randomUUID(), t: now, type: 'node', node: ev.node, data: ev.data }
+            ])
             break
-          case 'token':
-            setOutput(prev => prev + ev.content)
+          }
+          case 'token': {
+            setHistory(prev => {
+              const last = prev[prev.length - 1]
+              if (last && last.type === 'token_stream') {
+                // merge
+                return [
+                  ...prev.slice(0, -1),
+                  { ...last, content: last.content + ev.content }
+                ]
+              }
+              return [
+                ...prev,
+                { id: crypto.randomUUID(), t: now, type: 'token_stream', node: ev.node, content: ev.content }
+              ]
+            })
             break
-          case 'message':
-            setOutput(prev => prev + `\n[메시지] ${ev.content}`)
+          }
+          case 'message': {
+            setHistory(prev => [
+              ...prev,
+              { id: crypto.randomUUID(), t: now, type: 'message', content: ev.content || '' }
+            ])
             break
-          case 'error':
-            setOutput(prev => prev + `\n[에러] ${ev.message}`)
+          }
+          case 'error': {
+            setHistory(prev => [
+              ...prev,
+              { id: crypto.randomUUID(), t: now, type: 'error', message: ev.message }
+            ])
             setIsRunning(false)
             setShouldConnect(false)
             break
-          case 'finish':
+          }
+          case 'finish': {
             if (ev.counterexample_found && ev.counterexample_input) {
               setCounterExample(`반례 발견!\n\n입력:\n${ev.counterexample_input}`)
             } else {
               setCounterExample('반례를 찾지 못했습니다.')
             }
+            setHistory(prev => [
+              ...prev,
+              { id: crypto.randomUUID(), t: now, type: 'finish', counterexample_found: ev.counterexample_found, counterexample_input: ev.counterexample_input }
+            ])
             setIsRunning(false)
             setShouldConnect(false)
             break
+          }
         }
       } catch (err) {
-        setOutput(prev => prev + `\n[파싱오류] ${(err as Error).message}`)
+        setHistory(prev => [
+          ...prev,
+          { id: crypto.randomUUID(), t: Date.now(), type: 'error', message: `[파싱오류] ${(err as Error).message}` }
+        ])
       }
     },
     onClose: () => {
@@ -80,7 +179,7 @@ export function useCounterexample(): UseCounterexampleReturn {
   }, shouldConnect)
 
   const run = useCallback(({ problemId, code, language }: { problemId: number; code: string; language: string }) => {
-    setOutput('')
+    setHistory([])
     setCurrentNode(null)
     setCounterExample(null)
     setIsRunning(true)
@@ -97,13 +196,13 @@ export function useCounterexample(): UseCounterexampleReturn {
 
   const reset = useCallback(() => {
     close()
-    setOutput('')
+    setHistory([])
     setCurrentNode(null)
     setCounterExample(null)
     setIsRunning(false)
   }, [close])
 
-  return { output, currentNode, counterExample, isRunning, readyState, run, reset, close, runSeq }
+  return { history, currentNode, counterExample, isRunning, readyState, run, reset, close, runSeq }
 }
 
 export default useCounterexample

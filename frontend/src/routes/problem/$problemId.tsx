@@ -13,6 +13,7 @@ import TerminalPanel from '@/components/organisms/TerminalPanel'
 import { useProblemMetadataQuery } from "@/api/problem"
 import { tokenStorage } from '@/api/auth'
 import useCounterexample from '@/hooks/useCounterexample'
+import NodeTimeline from '@/components/organisms/NodeTimeline'
 
 
 export const Route = createFileRoute('/problem/$problemId')({
@@ -48,7 +49,7 @@ function SearchResultPage() {
   const [code, setCode] = useState(`// 여기에 코드를 작성하세요`)
   const [isTerminalOpen, setIsTerminalOpen] = useState(false)
   const {
-    output,
+    history,
     currentNode,
     counterExample,
     isRunning,
@@ -176,14 +177,21 @@ function SearchResultPage() {
                 {isTerminalOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
               </div>
               {isTerminalOpen && (
-                <TerminalPanel
-                  output={output}
-                  currentNode={currentNode}
-                  isRunning={isRunning}
-                  readyState={readyState}
-                  executionResult={executionResult}
-                  counterExample={counterExample}
-                />
+                <div className="flex h-full">
+                  <div className="w-40 border-r border-border border-t-1 p-2 overflow-y-auto bg-muted/30">
+                    <NodeTimeline history={history} currentNode={currentNode} />
+                  </div>
+                  <div className="flex-1 flex flex-col">
+                    <TerminalPanel
+                      history={history}
+                      currentNode={currentNode}
+                      isRunning={isRunning}
+                      readyState={readyState}
+                      executionResult={executionResult}
+                      counterExample={counterExample}
+                    />
+                  </div>
+                </div>
               )}
             </div>
           </div>

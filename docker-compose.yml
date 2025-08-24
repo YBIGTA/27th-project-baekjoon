@@ -39,6 +39,7 @@ services:
       UPSTAGE_API_KEY: "${UPSTAGE_API_KEY}"
       OPENAI_API_KEY: "${OPENAI_API_KEY}"
       CODE_RUNNER_URL: "http://code-runner:8000"
+      BOJ_RUNNER_URL: "http://boj-runner:8000"
     ports:
       - "8000:8000"
     env_file:

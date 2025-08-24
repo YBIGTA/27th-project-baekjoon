@@ -17,3 +17,4 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES") or "6
 UPSTAGE_API_KEY = SecretStr(os.getenv("UPSTAGE_API_KEY", ''))
 OPENAI_API_KEY = SecretStr(os.getenv("OPENAI_API_KEY", ''))
 CODE_RUNNER_URL = os.getenv("CODE_RUNNER_URL", "http://code-runner:8000")
+BOJ_RUNNER_URL = os.getenv("BOJ_RUNNER_URL", "http://boj-runner:8000")

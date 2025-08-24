@@ -26,6 +26,7 @@ class SolvedProblemService:
         metadata = await self.get_problem_metadata(problem_id)
         solution = self.repository.get_problem_solution(problem_id)
         counter_example = await self.counterexample_runner.find_counterexample(
+            problem_id,
             metadata.description,
             user_code, 
             user_code_language,

@@ -52,6 +52,7 @@ async def counterexample_ws(
         solution = repo.get_problem_solution(problem_id)
 
         async for event in counterexample_runner.stream_find_counterexample(
+            problem_id=problem_id,
             problem_description=metadata.description,
             user_code=user_code,
             language=language,

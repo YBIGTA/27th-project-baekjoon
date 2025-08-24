@@ -64,7 +64,8 @@ class CounterexampleRunner:
             )
     
     async def find_counterexample(
-        self, 
+        self,
+        problem_id: int,
         problem_description: str, 
         user_code: str, 
         language: str = "python",
@@ -89,6 +90,7 @@ class CounterexampleRunner:
             반례 찾기 결과
         """
         initial_state: CounterexampleState = {
+            "problem_id": problem_id,
             "problem_description": problem_description,
             "user_code": user_code,
             "language": language,
@@ -106,6 +108,7 @@ class CounterexampleRunner:
 
     async def stream_find_counterexample(
         self,
+        problem_id: int,
         problem_description: str,
         user_code: str,
         language: str = "python",
@@ -121,6 +124,7 @@ class CounterexampleRunner:
         필요 시 향후 노드 내부를 스트리밍 지원 형태로 확장 가능.
         """
         initial_state: CounterexampleState = {
+            "problem_id": problem_id,
             "problem_description": problem_description,
             "user_code": user_code,
             "language": language,

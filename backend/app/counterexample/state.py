@@ -2,6 +2,7 @@ from typing import TypedDict, Optional, List
 
 class CounterexampleState(TypedDict, total=False):
     # 입력
+    problem_id: int
     problem_description: str  # 주어진 문제
     user_code: str           # 사용자가 제출한 코드
     language: str
@@ -9,7 +10,11 @@ class CounterexampleState(TypedDict, total=False):
 
     # AI가 생성한 올바른 해결책
     correct_solution: str
-    
+
+    # 유효한 해결책인지 여부
+    is_solution_validated: bool
+    solution_generate_try: int
+
     # 테스트케이스
     test_case_generator: str
     

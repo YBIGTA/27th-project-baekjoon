@@ -1,15 +1,13 @@
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback } from "react"
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { ChevronDown, ChevronUp, Play, RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Spinner } from "@/components/ui/spinner"
 import Header from "@/components/organisms/header"
 import Footer from "@/components/organisms/footer"
 import { Protected } from '@/components/Protected'
 import Editor from '@monaco-editor/react'
-import StyledMarkdown from '@/components/molecules/StyledMarkdown' // kept for now (execution output area)
 import { ProblemViewer } from '@/components/organisms/problem-viewer'
 import { useProblemMetadataQuery } from "@/api/problem"
 import { tokenStorage, BASE_URL } from '@/api/auth'
@@ -18,11 +16,16 @@ import useWebSocket, { ReadyState } from 'react-use-websocket'
 
 
 export const Route = createFileRoute('/problem/$problemId')({
-  beforeLoad: async ({ context }) => {
-    // SSR not used; rely on client-side token presence checked in useMe
+  beforeLoad: async ({ context, params }) => {
+    // Auth check
     const token = tokenStorage.get()
     if (!token) {
       throw redirect({ to: '/login' })
+    }
+
+    // Param validation: only digits allowed
+    if (!/^\d+$/.test(params.problemId)) {
+      throw redirect({ to: '/' })
     }
   },
   component: SearchResultPage,
@@ -40,9 +43,6 @@ interface CodeExecutionResult {
 function SearchResultPage() {
   const { problemId } = Route.useParams()
   const parsedProblemId = parseInt(problemId, 10)
-  if (isNaN(parsedProblemId)) {
-    throw redirect({ to: '/' })
-  }
   const { data, isLoading } = useProblemMetadataQuery(parsedProblemId)
 
   const [code, setCode] = useState(`// 여기에 코드를 작성하세요`)

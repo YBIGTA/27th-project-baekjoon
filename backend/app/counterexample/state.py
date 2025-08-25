@@ -1,4 +1,5 @@
-from typing import TypedDict, Optional, List
+from asyncio import Event
+from typing import TypedDict, Optional, List, Any
 
 class CounterexampleState(TypedDict, total=False):
     # 입력
@@ -26,3 +27,6 @@ class CounterexampleState(TypedDict, total=False):
     counterexample_found: bool
     counterexample_input: Optional[str]
     counterexample_detail: Optional[dict]
+
+    # 내부 제어용 (취소 등)
+    _cancel_event: Event

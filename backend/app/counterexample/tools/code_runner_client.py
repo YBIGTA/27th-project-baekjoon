@@ -66,7 +66,7 @@ class CodeRunnerClient:
                 task_result = await task_response.json()
                 task_status = task_result.get("status", PENDING)
                 if task_status == PENDING:
-                    await asyncio.sleep(1)
+                    await asyncio.sleep(0.1)
 
             task_result: dict[str, Any] = task_result.get("result", {})  # type: ignore
             task_output = task_result.get("output", "")

@@ -1,11 +1,9 @@
 import { useState, useCallback } from "react"
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { ChevronDown, ChevronUp, Play, RotateCcw } from "lucide-react"
+import { ChevronDown, ChevronUp, Play, RotateCcw, Square } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Spinner } from "@/components/ui/spinner"
 import Header from "@/components/organisms/header"
-import Footer from "@/components/organisms/footer"
 import { Protected } from '@/components/Protected'
 import Editor from '@monaco-editor/react'
 import { ProblemViewer } from '@/components/organisms/problem-viewer'
@@ -61,10 +59,16 @@ function SearchResultPage() {
   const [selectedLanguage, setSelectedLanguage] = useState("javascript")
   const [executionResult, setExecutionResult] = useState<CodeExecutionResult | null>(null)
 
-  const handleRunCode = useCallback(() => {
+  const handleRunOrStop = useCallback(() => {
+    // 실행 중이면 중지 (웹소켓 종료)
+    if (isRunning) {
+      closeCounterexample()
+      return
+    }
+    // 새 실행
     setIsTerminalOpen(true)
     runCounterexample({ problemId: parsedProblemId, code, language: selectedLanguage })
-  }, [parsedProblemId, code, selectedLanguage, runCounterexample])
+  }, [isRunning, parsedProblemId, code, selectedLanguage, runCounterexample, closeCounterexample])
 
   const handleReset = () => {
     closeCounterexample()
@@ -121,15 +125,14 @@ function SearchResultPage() {
                     <RotateCcw className="h-4 w-4" />
                     초기화
                   </Button>
-                  <Button 
-                    onClick={handleRunCode} 
-                    disabled={isRunning}
-                    className="flex items-center gap-2 bg-primary hover:bg-primary/90 disabled:opacity-50"
+                  <Button
+                    onClick={handleRunOrStop}
+                    className={`flex items-center gap-2 ${isRunning ? 'bg-primary hover:bg-primary/90' : 'bg-primary hover:bg-primary/90'}`}
                   >
                     {isRunning ? (
                       <>
-                        <Spinner size="sm" className="text-white"/>
-                        실행 중...
+                        <Square className="h-4 w-4" />
+                        중지
                       </>
                     ) : (
                       <>

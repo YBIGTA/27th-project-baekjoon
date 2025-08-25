@@ -1,4 +1,5 @@
 import json
+import asyncio
 from typing import Dict, Any, Literal, Optional, Union, AsyncGenerator, cast
 from pydantic import BaseModel
 from app.counterexample.graph import build_counterexample_graph, build_counterexample_graph_from_compare
@@ -116,6 +117,7 @@ class CounterexampleRunner:
         correct_solution: Optional[str] = None,
         input_generator: Optional[str] = None,
         start_from_compare: bool = False,
+        cancel_event: Optional[asyncio.Event] = None,
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """LangGraph 그래프 astream 사용하여 노드 진행 상황/상태 업데이트 스트리밍.
 
@@ -135,12 +137,18 @@ class CounterexampleRunner:
             initial_state["correct_solution"] = correct_solution
         if input_generator is not None:
             initial_state["test_case_generator"] = input_generator
+        if cancel_event is not None:
+            initial_state["_cancel_event"] = cancel_event
 
         graph = self._get_graph(start_from_compare)
         last_state: Dict[str, Any] = dict(initial_state)
 
+        astream_gen = graph.astream(initial_state, stream_mode="updates")
         try:
-            async for event in graph.astream(initial_state, stream_mode="updates"):
+            async for event in astream_gen:
+                # 외부에서 취소 요청이 온 경우 중단
+                if cancel_event and cancel_event.is_set():
+                    break
                 # 현재 LangGraph updates 모드: { node_name: partial_state, ... }
                 if isinstance(event, dict):
                     for node_name, partial in event.items():
@@ -157,16 +165,31 @@ class CounterexampleRunner:
                     yield {"type": "event", "raw": str(event)}
         except Exception as e:
             yield {"type": "error", "message": str(e)}
+        finally:
+            # 취소된 경우 그래프 astream 종료 (잔여 작업 취소 유도)
+            if cancel_event and cancel_event.is_set():
+                # astream_gen이 aclose 지원 시 호출
+                aclose = getattr(astream_gen, "aclose", None)
+                if callable(aclose):
+                    try:
+                        result = aclose()
+                        if asyncio.iscoroutine(result):
+                            await result
+                    except Exception:
+                        pass
 
-        # 최종 결과 구성 (그래프 완료 후 last_state 기반)
-        yield {
-            "type": "finish",
-            "counterexample_found": last_state.get("counterexample_found"),
-            "counterexample_input": last_state.get("counterexample_input"),
-            "counterexample_detail": last_state.get("counterexample_detail"),
-            "correct_solution": last_state.get("correct_solution"),
-            "input_generator": last_state.get("test_case_generator"),
-        }
+        # 취소되지 않았다면 최종 결과 전송
+        if not (cancel_event and cancel_event.is_set()):
+            # 출력에 내부 제어 객체(_로 시작)는 포함하지 않도록 제거
+            sanitized = {k: v for k, v in last_state.items() if not k.startswith("_")}
+            yield {
+                "type": "finish",
+                "counterexample_found": sanitized.get("counterexample_found"),
+                "counterexample_input": sanitized.get("counterexample_input"),
+                "counterexample_detail": sanitized.get("counterexample_detail"),
+                "correct_solution": sanitized.get("correct_solution"),
+                "input_generator": sanitized.get("test_case_generator"),
+            }
 
 # 글로벌 인스턴스
 runner = CounterexampleRunner()

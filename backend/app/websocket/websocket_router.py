@@ -1,5 +1,7 @@
 import json
 import traceback
+import asyncio
+from typing import AsyncGenerator
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
 from langchain_core.messages import BaseMessage  # (future use)
 
@@ -14,6 +16,44 @@ from app.dependencies import (
 
 router = APIRouter(prefix="/ws", tags=["websocket"])
 
+async def producer(websocket: WebSocket, gen: AsyncGenerator[dict, None], cancel_event: asyncio.Event):
+    """
+    스트림 생성기(gen)의 이벤트를 클라이언트에게 전송합니다.
+    """
+    try:
+        async for event in gen:
+            # cancel_event가 설정되면 즉시 중단합니다.
+            if cancel_event.is_set():
+                break
+            
+            if (data := event.get("data")) and isinstance(data, dict):
+                sanitized_data = {k: v for k, v in data.items() if not k.startswith("_")}
+                event["data"] = sanitized_data
+            
+            # send 중 연결이 끊기면 여기서 WebSocketDisconnect 예외가 발생합니다.
+            await websocket.send_json(event)
+
+            if event.get("type") == "finish":
+                break
+    except WebSocketDisconnect:
+        print("Producer: 클라이언트가 전송 중 연결을 끊었습니다.")
+    finally:
+        # 이 태스크가 끝나면 cancel_event를 설정하여 다른 태스크도 종료시킵니다.
+        cancel_event.set()
+
+
+async def consumer(websocket: WebSocket, cancel_event: asyncio.Event):
+    """
+    클라이언트로부터의 메시지를 계속 수신 대기하여 연결 종료를 즉시 감지합니다.
+    """
+    try:
+        while not cancel_event.is_set():
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        print("Consumer: 클라이언트가 연결을 끊었습니다.")
+    finally:
+        cancel_event.set()
+
 
 @router.websocket("/counterexample")
 async def counterexample_ws(
@@ -22,20 +62,10 @@ async def counterexample_ws(
     repo: SolvedProblemRepository = Depends(get_solved_problem_repository),
     counterexample_runner: CounterexampleRunner = Depends(get_counterexample_runner),
 ):
-    """Counterexample 탐색 진행 상황 / LLM 출력 스트리밍 WebSocket.
-
-        초기 메시지(JSON): {
-        "problem_id": int,
-        "user_code": str,
-        "language": "python" (optional, default python)
-    }
-        이벤트 타입:
-            - node_update: 그래프 노드 실행 후 상태 조각
-            - message: (향후) LLM 메시지
-            - finish: 최종 결과
-            - error
-    """
     await websocket.accept()
+    cancel_event = asyncio.Event()
+    gen = None
+
     try:
         init_text = await websocket.receive_text()
         init_payload = json.loads(init_text)
@@ -45,13 +75,12 @@ async def counterexample_ws(
 
         if not user_code:
             await websocket.send_json({"type": "error", "message": "user_code is required"})
-            await websocket.close()
             return
 
         metadata = await service.get_problem_metadata(problem_id)
         solution = repo.get_problem_solution(problem_id)
 
-        async for event in counterexample_runner.stream_find_counterexample(
+        gen = counterexample_runner.stream_find_counterexample(
             problem_id=problem_id,
             problem_description=metadata.description,
             user_code=user_code,
@@ -60,12 +89,20 @@ async def counterexample_ws(
             correct_solution=solution.solution_code if solution else None,
             input_generator=solution.input_generator if solution else None,
             start_from_compare=True if solution else False,
-        ):
-            await websocket.send_json(event)
-            if event.get("type") == "finish":
-                break
-    except WebSocketDisconnect:
-        return
+            cancel_event=cancel_event,
+        )
+
+        producer_task = asyncio.create_task(producer(websocket, gen, cancel_event))
+        consumer_task = asyncio.create_task(consumer(websocket, cancel_event))
+
+        done, pending = await asyncio.wait(
+            {producer_task, consumer_task},
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+
+        for task in pending:
+            task.cancel()
+
     except Exception as e:
         await websocket.send_json({
             "type": "error",
@@ -73,6 +110,12 @@ async def counterexample_ws(
             "trace": traceback.format_exc(limit=2)
         })
     finally:
+        cancel_event.set()
+        if gen:
+            try:
+                await gen.aclose()
+            except Exception:
+                pass
         try:
             await websocket.close()
         except Exception:

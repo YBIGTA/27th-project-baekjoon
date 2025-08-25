@@ -9,6 +9,7 @@ async def run_codes_and_compare(state: CounterexampleState) -> CounterexampleSta
     correct_solution = state.get("correct_solution", "")
     test_case_generator = state.get("test_case_generator", "")
     language = state.get("language", "python")
+    cancel_event = state.get("_cancel_event")
 
     if not user_code or not correct_solution or not test_case_generator:
         return {**state, "counterexample_found": False}
@@ -22,6 +23,9 @@ async def run_codes_and_compare(state: CounterexampleState) -> CounterexampleSta
         counterexample_detail = None
 
         for i in range(100):
+            if cancel_event and cancel_event.is_set():
+                logging.info("Cancellation requested: stopping code-runner loop early")
+                break
             logging.info(f"Running test case {i+1}")
 
             input_gen_result = await code_runner.run_code(test_case_generator, language)

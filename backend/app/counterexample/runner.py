@@ -172,9 +172,7 @@ class CounterexampleRunner:
                 aclose = getattr(astream_gen, "aclose", None)
                 if callable(aclose):
                     try:
-                        result = aclose()
-                        if asyncio.iscoroutine(result):
-                            await result
+                        await aclose()
                     except Exception:
                         pass
 
